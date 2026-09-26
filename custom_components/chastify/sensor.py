@@ -20,31 +20,20 @@ async def async_setup_entry(
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
-    async_add_entities(
-        [
-            ChastifySensor(coordinator, entry, "my_lock_keyholder_username", "Keyholder Username", "keyholderUsername", "my_lock", "My Lock"),
-            ChastifySensor(coordinator, entry, "keyholder_keyholder_username", "Keyholder Username", "keyholderUsername", "keyholder", "Keyholder"),
-            ChastifySensor(coordinator, entry, "my_lock_wearer_username", "Wearer Username", "wearerUsername", "my_lock", "My Lock"),
-            ChastifySensor(coordinator, entry, "keyholder_wearer_username", "Wearer Username", "wearerUsername", "keyholder", "Keyholder"),
-            ChastifySensor(coordinator, entry, "session_role", "Session Role", "role", "my_lock", "My Lock"),
-            ChastifySensor(coordinator, entry, "wearer_last_seen", "Wearer Last Seen", "wearerLastSeenTimestamp", "my_lock", "My Lock"),
-            ChastifySensor(coordinator, entry, "keyholder_last_seen", "Keyholder Last Seen", "keyholderLastSeenTimestamp", "keyholder", "Keyholder"),
-            ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle", "my_lock", "My Lock"),
-            ChastifySensor(coordinator, entry, "keyholder_lock_title", "Lock Title", "lockTitle", "keyholder", "Keyholder"),
-            ChastifyDurationSensor(coordinator, entry, "max_time_remaining", "Maximum Time Remaining", "maxTimeRemainingSeconds", "my_lock", "My Lock"),
-            ChastifyDurationSensor(coordinator, entry, "keyholder_max_time_remaining", "Maximum Time Remaining", "maxTimeRemainingSeconds", "keyholder", "Keyholder"),
-            ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds", "my_lock", "My Lock"),
-            ChastifyDurationSensor(coordinator, entry, "keyholder_time_locked", "Time Locked", "timeLockedSeconds", "keyholder", "Keyholder"),
-            ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds", "my_lock", "My Lock"),
-            ChastifyDurationSensor(coordinator, entry, "keyholder_time_remaining", "Time Remaining", "timeRemainingSeconds", "keyholder", "Keyholder"),
-            ChastifyNumberSensor(coordinator, entry, "task_points", "Task Points", "taskPoints", "my_lock", "My Lock"),
-            ChastifyNumberSensor(coordinator, entry, "keyholder_task_points", "Task Points", "taskPoints", "keyholder", "Keyholder"),
-            ChastifyDerivedNumberSensor(coordinator, entry, "task_points_remaining", "Task Points Remaining", _task_points_remaining, "my_lock", "My Lock"),
-            ChastifyDerivedNumberSensor(coordinator, entry, "keyholder_task_points_remaining", "Task Points Remaining", _task_points_remaining, "keyholder", "Keyholder"),
-            ChastifyNumberSensor(coordinator, entry, "task_points_required", "Task Points Required", "taskPointsRequired", "my_lock", "My Lock"),
-            ChastifyNumberSensor(coordinator, entry, "keyholder_task_points_required", "Task Points Required", "taskPointsRequired", "keyholder", "Keyholder"),
-        ]
-    )
+    async_add_entities([
+        ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
+        ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
+        ChastifySensor(coordinator, entry, "session_role", "Session Role", "role"),
+        ChastifySensor(coordinator, entry, "wearer_last_seen", "Wearer Last Seen", "wearerLastSeenTimestamp"),
+        ChastifySensor(coordinator, entry, "keyholder_last_seen", "Keyholder Last Seen", "keyholderLastSeenTimestamp"),
+        ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle"),
+        ChastifyDurationSensor(coordinator, entry, "max_time_remaining", "Maximum Time Remaining", "maxTimeRemainingSeconds"),
+        ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds"),
+        ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds"),
+        ChastifyNumberSensor(coordinator, entry, "task_points", "Task Points", "taskPoints"),
+        ChastifyDerivedNumberSensor(coordinator, entry, "task_points_remaining", "Task Points Remaining", _task_points_remaining),
+        ChastifyNumberSensor(coordinator, entry, "task_points_required", "Task Points Required", "taskPointsRequired"),
+    ])
 
 
 class ChastifyBaseSensor(CoordinatorEntity[ChastifyCoordinator], SensorEntity):

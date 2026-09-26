@@ -37,10 +37,10 @@ class ChastifyButton(CoordinatorEntity[ChastifyCoordinator], ButtonEntity):
     def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator)
         self._attr_device_info = {
-            "identifiers": {(DOMAIN, f"{entry.entry_id}_{device_id}")},
-            "name": device_name,
+            "identifiers": {(DOMAIN, f"{entry.entry_id}_my_lock")},
+            "name": "My Lock",
             "manufacturer": "Chastify",
-            "model": "Chastify Lock" if device_id == "my_lock" else "Chastify Keyholder",
+            "model": "Chastify Lock",
         }
 
 

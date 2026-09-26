@@ -93,7 +93,9 @@ class ChastifyApi:
         return await self._request("POST", "/lock/freeze", json=params)
 
     async def async_unfreeze(self) -> dict[str, Any]:
-        return await self._request("POST", "/lock/unfreeze")
+        # Chastify expects a JSON request body for this POST, even though
+        # unfreeze does not require any parameters.
+        return await self._request("POST", "/lock/unfreeze", json={})
 
     async def async_hygienic_unlock(self) -> dict[str, Any]:
         """Start Chastify's documented temporary hygienic opening."""

@@ -58,153 +58,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    if entry.version < 4:
-        device_registry = dr.async_get(hass)
+    """Migrate older installations to the single-session device."""
+    if entry.version < 14:
         entity_registry = er.async_get(hass)
-
-        my_lock = device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, f"{entry.entry_id}_my_lock")},
-            name="My Lock",
-            manufacturer="Chastify",
-            model="Chastify Lock",
-        )
-        keyholder = device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, f"{entry.entry_id}_keyholder")},
-            name="Keyholder",
-            manufacturer="Chastify",
-            model="Chastify Keyholder",
-        )
-
-        keyholder_unique_ids = {
-            f"{entry.entry_id}_keyholder_username",
-            f"{entry.entry_id}_keyholder_keyholder_username",
-            f"{entry.entry_id}_keyholder_freeze",
-            f"{entry.entry_id}_keyholder_unfreeze",
-            f"{entry.entry_id}_keyholder_lock_title",
-            f"{entry.entry_id}_keyholder_max_time_remaining",
-            f"{entry.entry_id}_keyholder_time_locked",
-            f"{entry.entry_id}_keyholder_time_remaining",
-            f"{entry.entry_id}_keyholder_wearer_username",
-            f"{entry.entry_id}_keyholder_task_points",
-            f"{entry.entry_id}_keyholder_task_points_remaining",
-            f"{entry.entry_id}_keyholder_task_points_required",
-        }
-
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            target = keyholder if entity.unique_id in keyholder_unique_ids else my_lock
-            entity_registry.async_update_entity(entity.entity_id, device_id=target.id)
-
-        hass.config_entries.async_update_entry(entry, version=4)
-
-    if entry.version < 5:
-        device_registry = dr.async_get(hass)
-        entity_registry = er.async_get(hass)
-
-        keyholder = device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, f"{entry.entry_id}_keyholder")},
-            name="Keyholder",
-            manufacturer="Chastify",
-            model="Chastify Keyholder",
-        )
-
-        keyholder_refresh_unique_id = f"{entry.entry_id}_keyholder_refresh"
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id == keyholder_refresh_unique_id:
-                entity_registry.async_update_entity(entity.entity_id, device_id=keyholder.id)
-
-        hass.config_entries.async_update_entry(entry, version=5)
-
-    if entry.version < 6:
-        entity_registry = er.async_get(hass)
-
-        keyholder_username_unique_id = f"{entry.entry_id}_keyholder_username"
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id == keyholder_username_unique_id:
-                entity_registry.async_update_entity(
-                    entity.entity_id,
-                    name="Keyholder Username",
-                )
-
-        hass.config_entries.async_update_entry(entry, version=6)
-
-    if entry.version < 7:
-        entity_registry = er.async_get(hass)
-
-        keyholder_username_unique_id = f"{entry.entry_id}_keyholder_username"
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id == keyholder_username_unique_id:
-                entity_registry.async_update_entity(
-                    entity.entity_id,
-                    name="Keyholder Username",
-                )
-
-        hass.config_entries.async_update_entry(entry, version=7)
-
-    if entry.version < 8:
-        entity_registry = er.async_get(hass)
-
-        username_unique_ids = {
-            f"{entry.entry_id}_keyholder_username",
-            f"{entry.entry_id}_wearer_username",
-            f"{entry.entry_id}_keyholder_wearer_username",
-        }
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id in username_unique_ids:
+        for entity in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
+            if "keyholder" in entity.unique_id:
                 entity_registry.async_remove(entity.entity_id)
-
-        hass.config_entries.async_update_entry(entry, version=8)
-
-    if entry.version < 9:
-        device_registry = dr.async_get(hass)
-        entity_registry = er.async_get(hass)
-        keyholder = device_registry.async_get_or_create(
-            config_entry_id=entry.entry_id,
-            identifiers={(DOMAIN, f"{entry.entry_id}_keyholder")},
-            name="Keyholder",
-            manufacturer="Chastify",
-            model="Chastify Keyholder",
-        )
-        keyholder_unique_ids = {
-            f"{entry.entry_id}_keyholder_frozen",
-            f"{entry.entry_id}_keyholder_ready_to_unlock",
-            f"{entry.entry_id}_keyholder_trusted",
-            f"{entry.entry_id}_keyholder_task_assigned",
-        }
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id in keyholder_unique_ids:
-                entity_registry.async_update_entity(
-                    entity.entity_id,
-                    device_id=keyholder.id,
-                )
-
-        hass.config_entries.async_update_entry(entry, version=9)
-
-    if entry.version < 13:
-        entity_registry = er.async_get(hass)
-        old_unique_id = f"{entry.entry_id}_keyholder_username"
-        for entity in er.async_entries_for_config_entry(
-            entity_registry, entry.entry_id
-        ):
-            if entity.unique_id == old_unique_id:
-                entity_registry.async_remove(entity.entity_id)
-
-        hass.config_entries.async_update_entry(entry, version=13)
-
+        hass.config_entries.async_update_entry(entry, version=14)
     return True
 
 
@@ -232,42 +92,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     my_lock = device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, f"{entry.entry_id}_my_lock")},
-        name="My Lock",
+        name="Session",
         manufacturer="Chastify",
         model="Chastify Lock",
     )
-    keyholder = device_registry.async_get_or_create(
-        config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, f"{entry.entry_id}_keyholder")},
-        name="Keyholder",
-        manufacturer="Chastify",
-        model="Chastify Keyholder",
-    )
-    keyholder_unique_ids = {
-        f"{entry.entry_id}_keyholder_refresh",
-        f"{entry.entry_id}_keyholder_frozen",
-        f"{entry.entry_id}_keyholder_ready_to_unlock",
-        f"{entry.entry_id}_keyholder_trusted",
-        f"{entry.entry_id}_keyholder_task_assigned",
-        f"{entry.entry_id}_keyholder_last_seen",
-        f"{entry.entry_id}_keyholder_keyholder_username",
-        f"{entry.entry_id}_keyholder_freeze",
-        f"{entry.entry_id}_keyholder_unfreeze",
-        f"{entry.entry_id}_keyholder_lock_title",
-        f"{entry.entry_id}_keyholder_max_time_remaining",
-        f"{entry.entry_id}_keyholder_time_locked",
-        f"{entry.entry_id}_keyholder_time_remaining",
-        f"{entry.entry_id}_keyholder_wearer_username",
-        f"{entry.entry_id}_keyholder_task_points",
-        f"{entry.entry_id}_keyholder_task_points_remaining",
-        f"{entry.entry_id}_keyholder_task_points_required",
-    }
-    for entity in er.async_entries_for_config_entry(
-        entity_registry, entry.entry_id
-    ):
-        target = keyholder if entity.unique_id in keyholder_unique_ids else my_lock
-        if entity.device_id != target.id:
-            entity_registry.async_update_entity(entity.entity_id, device_id=target.id)
+    for entity in er.async_entries_for_config_entry(entity_registry, entry.entry_id):
+        if entity.device_id != my_lock.id:
+            er.async_update_entity(entity.entity_id, device_id=my_lock.id)
 
     async def action(call: ServiceCall):
         await api.async_action(call.data[ATTR_NAME], call.data.get(ATTR_PARAMS))

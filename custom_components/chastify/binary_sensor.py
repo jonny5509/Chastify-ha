@@ -29,7 +29,7 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
     _attr_has_entity_name = True
     _attr_icon = "mdi:lock-check"
 
-    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="My Lock"):
+    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator)
         self._data_key = data_key
         self._attr_name = name

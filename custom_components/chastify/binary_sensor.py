@@ -48,16 +48,35 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
 
         # Chastify documents this as lockData.unlockable, but accept
         # equivalent names in case the API response varies by version.
-        if self._data_key == "unlockable" and value is None:
+        if self._data_key == "unlockable":
+            # Prefer the documented lockData.unlockable value, then fall
+            # back to equivalent spellings anywhere in the session payload.
             payload = lock_data(data)
-            value = (
-                payload.get("readyToUnlock")
-                if "readyToUnlock" in payload
-                else payload.get("ready_to_unlock")
-            )
+            value = payload.get("unlockable", value)
+            if value is None:
+                value = _find_value(data, {"readyToUnlock", "ready_to_unlock"})
 
         if value is None:
             return None
         if isinstance(value, str):
             return value.strip().lower() in {"true", "1", "yes", "on"}
         return bool(value)
+
+
+
+def _find_value(value, keys: set[str]):
+    """Find a boolean-like field in nested Chastify response data."""
+    if isinstance(value, dict):
+        for key in keys:
+            if key in value:
+                return value[key]
+        for child in value.values():
+            found = _find_value(child, keys)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = _find_value(child, keys)
+            if found is not None:
+                return found
+    return None

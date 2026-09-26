@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -49,7 +50,7 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
         if self._data_key == "unlockable":
             value = _find_value(
                 self.coordinator.data,
-                {"unlockable", "readyToUnlock", "ready_to_unlock"},
+                {"unlockable", "readyToUnlock", "ready_to_unlock", "isUnlockable", "canUnlock"},
             )
         else:
             value = field(self.coordinator.data, self._data_key)
@@ -62,8 +63,9 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
 
 
 def _find_value(value, keys: set[str]):
-    """Find a Chastify field recursively, case-insensitively."""
+    """Find an unlock state anywhere in the Chastify response."""
     normalized_keys = {key.lower() for key in keys}
+
     if isinstance(value, dict):
         for key, child in value.items():
             if str(key).lower() in normalized_keys:
@@ -77,4 +79,12 @@ def _find_value(value, keys: set[str]):
             found = _find_value(child, keys)
             if found is not None:
                 return found
+    elif isinstance(value, str):
+        try:
+            decoded = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+        if isinstance(decoded, (dict, list)):
+            return _find_value(decoded, keys)
+
     return None

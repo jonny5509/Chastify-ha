@@ -38,7 +38,7 @@ class ChastifyButton(CoordinatorEntity[ChastifyCoordinator], ButtonEntity):
         super().__init__(coordinator)
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_my_lock")},
-            "name": "My Lock",
+            "name": "Session",
             "manufacturer": "Chastify",
             "model": "Chastify Lock",
         }

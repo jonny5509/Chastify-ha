@@ -41,13 +41,23 @@ class ChastifyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
 
 def lock_data(data: dict[str, Any]) -> dict[str, Any]:
-    # The API may wrap the session payload in a top-level "data" object.
-    payload = data.get("data", data)
-    if not isinstance(payload, dict):
+    """Return lockData from the API response, handling common wrappers."""
+    if not isinstance(data, dict):
         return {}
 
-    value = payload.get("lockData", payload)
-    return value if isinstance(value, dict) else {}
+    candidates = [data]
+    for key in ("data", "session", "lock"):
+        value = data.get(key)
+        if isinstance(value, dict):
+            candidates.append(value)
+
+    for payload in candidates:
+        value = payload.get("lockData")
+        if isinstance(value, dict):
+            return value
+
+    # Some API responses may expose the lock fields directly.
+    return data
 
 
 def field(data: dict[str, Any], key: str) -> Any:

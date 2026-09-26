@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
@@ -63,9 +64,23 @@ class ChastifySensor(ChastifyBaseSensor):
         self._data_key = data_key
 
     @property
-    def native_value(self) -> str | None:
+    def native_value(self) -> str | datetime | None:
         value = field(self.coordinator.data, self._data_key)
-        return None if value is None else str(value)
+        if value is None:
+            return None
+
+        if self._data_key.endswith("LastSeenTimestamp"):
+            try:
+                timestamp = float(value)
+                # Chastify returns Unix timestamps in milliseconds.
+                if timestamp > 10_000_000_000:
+                    timestamp /= 1000
+                self._attr_device_class = SensorDeviceClass.TIMESTAMP
+                return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            except (TypeError, ValueError, OverflowError):
+                return None
+
+        return str(value)
 
 
 class ChastifyNumberSensor(ChastifyBaseSensor):

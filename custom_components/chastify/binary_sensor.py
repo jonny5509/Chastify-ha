@@ -44,4 +44,8 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
     @property
     def is_on(self) -> bool | None:
         value = field(self.coordinator.data, self._data_key)
-        return None if value is None else bool(value)
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value.strip().lower() in {"true", "1", "yes", "on"}
+        return bool(value)

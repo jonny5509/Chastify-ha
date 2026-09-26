@@ -92,7 +92,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     my_lock = device_registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(DOMAIN, f"{entry.entry_id}_my_lock")},
-        name="My Lock",
+        name="Session",
         manufacturer="Chastify",
         model="Chastify Lock",
     )

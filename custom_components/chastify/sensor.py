@@ -83,17 +83,21 @@ class ChastifyNumberSensor(ChastifyBaseSensor):
 
 class ChastifyDurationSensor(ChastifyBaseSensor):
     _attr_icon = "mdi:timer-outline"
-    _attr_device_class = SensorDeviceClass.DURATION
-    _attr_native_unit_of_measurement = "s"
+
 
     def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._data_key = data_key
 
     @property
-    def native_value(self) -> int | float | None:
+    def native_value(self) -> str | None:
         value = _number(field(self.coordinator.data, self._data_key))
-        return None if value is None else max(0, value)
+        if value is None:
+            return None
+        total_seconds = max(0, int(value))
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
 class ChastifyDerivedNumberSensor(ChastifyBaseSensor):

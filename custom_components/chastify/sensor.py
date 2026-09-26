@@ -64,7 +64,7 @@ class ChastifySensor(ChastifyBaseSensor):
         self._data_key = data_key
 
     @property
-    def native_value(self) -> str | datetime | None:
+    def native_value(self) -> str | None:
         value = field(self.coordinator.data, self._data_key)
         if value is None:
             return None
@@ -75,8 +75,8 @@ class ChastifySensor(ChastifyBaseSensor):
                 # Chastify returns Unix timestamps in milliseconds.
                 if timestamp > 10_000_000_000:
                     timestamp /= 1000
-                self._attr_device_class = SensorDeviceClass.TIMESTAMP
-                return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                self._attr_device_class = None
+                return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%H:%M:%S")
             except (TypeError, ValueError, OverflowError):
                 return None
 

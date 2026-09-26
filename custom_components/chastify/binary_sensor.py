@@ -18,14 +18,10 @@ async def async_setup_entry(
 ):
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     async_add_entities([
-        ChastifyBinary(coordinator, entry, "frozen", "Frozen", "frozen", "my_lock", "My Lock"),
-        ChastifyBinary(coordinator, entry, "keyholder_frozen", "Frozen", "frozen", "keyholder", "Keyholder"),
-        ChastifyBinary(coordinator, entry, "ready_to_unlock", "Ready to unlock", "unlockable", "my_lock", "My Lock"),
-        ChastifyBinary(coordinator, entry, "keyholder_ready_to_unlock", "Ready to unlock", "unlockable", "keyholder", "Keyholder"),
-        ChastifyBinary(coordinator, entry, "trusted", "Trusted", "trusted", "my_lock", "My Lock"),
-        ChastifyBinary(coordinator, entry, "keyholder_trusted", "Trusted", "trusted", "keyholder", "Keyholder"),
-        ChastifyBinary(coordinator, entry, "task_assigned", "Task Assigned", "taskAssigned", "my_lock", "My Lock"),
-        ChastifyBinary(coordinator, entry, "keyholder_task_assigned", "Task Assigned", "taskAssigned", "keyholder", "Keyholder"),
+        ChastifyBinary(coordinator, entry, "frozen", "Frozen", "frozen"),
+        ChastifyBinary(coordinator, entry, "ready_to_unlock", "Ready to unlock", "unlockable"),
+        ChastifyBinary(coordinator, entry, "trusted", "Trusted", "trusted"),
+        ChastifyBinary(coordinator, entry, "task_assigned", "Task Assigned", "taskAssigned"),
     ])
 
 

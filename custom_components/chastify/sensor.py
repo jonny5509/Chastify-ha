@@ -22,18 +22,18 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
 
     async_add_entities([
-        ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
-        ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
-        ChastifySensor(coordinator, entry, "session_role", "Session Role", "role"),
-        ChastifySensor(coordinator, entry, "wearer_last_seen", "Wearer Last Seen", "wearerLastSeenTimestamp"),
         ChastifySensor(coordinator, entry, "keyholder_last_seen", "Keyholder Last Seen", "keyholderLastSeenTimestamp"),
+        ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
         ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle"),
         ChastifyDurationSensor(coordinator, entry, "max_time_remaining", "Maximum Time Remaining", "maxTimeRemainingSeconds"),
-        ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds"),
-        ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds"),
+        ChastifyDurationSensor(coordinator, entry, "session_role", "Session Role", "role"),
         ChastifyNumberSensor(coordinator, entry, "task_points", "Task Points", "taskPoints"),
         ChastifyDerivedNumberSensor(coordinator, entry, "task_points_remaining", "Task Points Remaining", _task_points_remaining),
         ChastifyNumberSensor(coordinator, entry, "task_points_required", "Task Points Required", "taskPointsRequired"),
+        ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds"),
+        ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds"),
+        ChastifySensor(coordinator, entry, "wearer_last_seen", "Wearer Last Seen", "wearerLastSeenTimestamp"),
+        ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
     ])
 
 

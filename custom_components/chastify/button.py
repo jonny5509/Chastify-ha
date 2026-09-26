@@ -68,12 +68,20 @@ class RefreshButton(ChastifyButton):
 class FreezeButton(ChastifyButton):
     _attr_name = "Freeze"
     _attr_icon = "mdi:snowflake"
+
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_freeze"
+
+    @property
+    def available(self) -> bool:
+        # Chastify returns lock_ended when the active session has ended.
+        return super().available and bool(self.coordinator.data)
+
     async def async_press(self) -> None:
         await self.coordinator.api.async_freeze(FREEZE_BUTTON_DURATION_SECONDS)
         await self.coordinator.async_request_refresh()
+
 
 class UnfreezeButton(ChastifyButton):
     _attr_name = "Unfreeze"
@@ -81,6 +89,11 @@ class UnfreezeButton(ChastifyButton):
     def __init__(self, coordinator, entry):
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_unfreeze"
+    @property
+    def available(self) -> bool:
+        # Chastify returns lock_ended when the active session has ended.
+        return super().available and bool(self.coordinator.data)
+
     async def async_press(self) -> None:
         await self.coordinator.api.async_unfreeze()
         await self.coordinator.async_request_refresh()

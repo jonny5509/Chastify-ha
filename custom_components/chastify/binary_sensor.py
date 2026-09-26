@@ -43,18 +43,16 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
 
     @property
     def is_on(self) -> bool | None:
-        data = self.coordinator.data
-        value = field(data, self._data_key)
+        if not self.coordinator.data:
+            return None
 
-        # Chastify documents this as lockData.unlockable, but accept
-        # equivalent names in case the API response varies by version.
         if self._data_key == "unlockable":
-            # Prefer the documented lockData.unlockable value, then fall
-            # back to equivalent spellings anywhere in the session payload.
-            payload = lock_data(data)
-            value = payload.get("unlockable", value)
-            if value is None:
-                value = _find_value(data, {"readyToUnlock", "ready_to_unlock"})
+            value = _find_value(
+                self.coordinator.data,
+                {"unlockable", "readyToUnlock", "ready_to_unlock"},
+            )
+        else:
+            value = field(self.coordinator.data, self._data_key)
 
         if value is None:
             return None
@@ -63,13 +61,13 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
         return bool(value)
 
 
-
 def _find_value(value, keys: set[str]):
-    """Find a boolean-like field in nested Chastify response data."""
+    """Find a Chastify field recursively, case-insensitively."""
+    normalized_keys = {key.lower() for key in keys}
     if isinstance(value, dict):
-        for key in keys:
-            if key in value:
-                return value[key]
+        for key, child in value.items():
+            if str(key).lower() in normalized_keys:
+                return child
         for child in value.values():
             found = _find_value(child, keys)
             if found is not None:

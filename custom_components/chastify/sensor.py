@@ -42,7 +42,7 @@ class ChastifyBaseSensor(CoordinatorEntity[ChastifyCoordinator], SensorEntity):
 
     def __init__(
         self, coordinator: ChastifyCoordinator, entry: ConfigEntry,
-        key: str, name: str, device_id: str = "my_lock", device_name: str = "My Lock"
+        key: str, name: str, device_id: str = "my_lock", device_name: str = "Session"
     ) -> None:
         super().__init__(coordinator)
         self._attr_name = name
@@ -58,7 +58,7 @@ class ChastifyBaseSensor(CoordinatorEntity[ChastifyCoordinator], SensorEntity):
 class ChastifySensor(ChastifyBaseSensor):
     _attr_icon = "mdi:account"
 
-    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="My Lock"):
+    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._data_key = data_key
 
@@ -72,7 +72,7 @@ class ChastifyNumberSensor(ChastifyBaseSensor):
     _attr_icon = "mdi:star"
     _attr_native_unit_of_measurement = "points"
 
-    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="My Lock"):
+    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._data_key = data_key
 
@@ -86,7 +86,7 @@ class ChastifyDurationSensor(ChastifyBaseSensor):
     _attr_device_class = SensorDeviceClass.DURATION
     _attr_native_unit_of_measurement = "s"
 
-    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="My Lock"):
+    def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._data_key = data_key
 
@@ -100,7 +100,7 @@ class ChastifyDerivedNumberSensor(ChastifyBaseSensor):
     _attr_icon = "mdi:chart-box-outline"
     _attr_native_unit_of_measurement = "points"
 
-    def __init__(self, coordinator, entry, key, name, getter, device_id="my_lock", device_name="My Lock"):
+    def __init__(self, coordinator, entry, key, name, getter, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._getter = getter
 

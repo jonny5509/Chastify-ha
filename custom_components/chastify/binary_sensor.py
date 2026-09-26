@@ -8,7 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import ChastifyCoordinator, field
+from .coordinator import ChastifyCoordinator, field, lock_data
 
 
 async def async_setup_entry(
@@ -43,7 +43,19 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
 
     @property
     def is_on(self) -> bool | None:
-        value = field(self.coordinator.data, self._data_key)
+        data = self.coordinator.data
+        value = field(data, self._data_key)
+
+        # Chastify documents this as lockData.unlockable, but accept
+        # equivalent names in case the API response varies by version.
+        if self._data_key == "unlockable" and value is None:
+            payload = lock_data(data)
+            value = (
+                payload.get("readyToUnlock")
+                if "readyToUnlock" in payload
+                else payload.get("ready_to_unlock")
+            )
+
         if value is None:
             return None
         if isinstance(value, str):

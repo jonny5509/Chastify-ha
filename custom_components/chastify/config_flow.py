@@ -18,7 +18,7 @@ async def _validate_token(token: str) -> None:
 
 
 class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 13
+    VERSION = 14
 
     async def async_step_user(self, user_input=None):
         errors: dict[str, str] = {}

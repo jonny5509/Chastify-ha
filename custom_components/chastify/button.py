@@ -23,7 +23,7 @@ async def async_setup_entry(
     allowed = {
         "Refresh",
         "Refresh history",
-        "Unlock",
+        "Hygienic unlock",
         "Emergency unlock",
         "Archive",
         "Freeze",
@@ -124,15 +124,21 @@ class RefreshHistoryButton(ChastifyButton):
 
 
 class UnlockButton(ChastifyButton):
-    _attr_name = "Unlock"
+    # Chastify's External API does not expose a generic "unlock" action.
+    # The documented unlock-related action is hygienic_unlock.start.
+    _attr_name = "Hygienic unlock"
     _attr_icon = "mdi:lock-open"
 
     def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
         self._attr_unique_id = f"{entry.entry_id}_unlock"
 
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)
+
     async def async_press(self) -> None:
-        await self.coordinator.api.async_action("unlock")
+        await self.coordinator.api.async_hygienic_unlock()
         await self.coordinator.async_request_refresh()
 
 

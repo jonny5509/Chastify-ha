@@ -11,6 +11,8 @@ from .const import DOMAIN
 from .coordinator import ChastifyCoordinator
 
 FREEZE_BUTTON_DURATION_SECONDS = 3600
+ADD_DAY_SECONDS = 86400
+ADD_HOUR_SECONDS = 3600
 
 
 async def async_setup_entry(
@@ -24,6 +26,10 @@ async def async_setup_entry(
         "Refresh",
         "Refresh history",
         "Hygienic unlock",
+        "Add 1 day",
+        "Add 1 hour",
+        "Subtract 1 day",
+        "Subtract 1 hour",
         "Emergency unlock",
         "Archive",
         "Freeze",
@@ -39,6 +45,10 @@ async def async_setup_entry(
             RefreshButton(coordinator, entry, "refresh"),
             RefreshHistoryButton(coordinator, entry),
             UnlockButton(coordinator, entry),
+            AddOneDayButton(coordinator, entry),
+            AddOneHourButton(coordinator, entry),
+            SubtractOneDayButton(coordinator, entry),
+            SubtractOneHourButton(coordinator, entry),
             EmergencyUnlockButton(coordinator, entry),
             ArchiveButton(coordinator, entry),
             FreezeButton(coordinator, entry),
@@ -139,6 +149,74 @@ class UnlockButton(ChastifyButton):
 
     async def async_press(self) -> None:
         await self.coordinator.api.async_hygienic_unlock()
+        await self.coordinator.async_request_refresh()
+
+
+class AddOneDayButton(ChastifyButton):
+    _attr_name = "Add 1 day"
+    _attr_icon = "mdi:calendar-plus"
+
+    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_add_1_day"
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)
+
+    async def async_press(self) -> None:
+        await self.coordinator.api.async_apply_time(ADD_DAY_SECONDS)
+        await self.coordinator.async_request_refresh()
+
+
+class AddOneHourButton(ChastifyButton):
+    _attr_name = "Add 1 hour"
+    _attr_icon = "mdi:clock-plus"
+
+    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_add_1_hour"
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)
+
+    async def async_press(self) -> None:
+        await self.coordinator.api.async_apply_time(ADD_HOUR_SECONDS)
+        await self.coordinator.async_request_refresh()
+
+
+class SubtractOneDayButton(ChastifyButton):
+    _attr_name = "Subtract 1 day"
+    _attr_icon = "mdi:calendar-minus"
+
+    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_subtract_1_day"
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)
+
+    async def async_press(self) -> None:
+        await self.coordinator.api.async_apply_time(-ADD_DAY_SECONDS)
+        await self.coordinator.async_request_refresh()
+
+
+class SubtractOneHourButton(ChastifyButton):
+    _attr_name = "Subtract 1 hour"
+    _attr_icon = "mdi:clock-minus"
+
+    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_unique_id = f"{entry.entry_id}_subtract_1_hour"
+
+    @property
+    def available(self) -> bool:
+        return super().available and bool(self.coordinator.data)
+
+    async def async_press(self) -> None:
+        await self.coordinator.api.async_apply_time(-ADD_HOUR_SECONDS)
         await self.coordinator.async_request_refresh()
 
 

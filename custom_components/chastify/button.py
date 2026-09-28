@@ -24,8 +24,6 @@ async def async_setup_entry(
         "Refresh",
         "Refresh history",
         "Hygienic unlock",
-        "Emergency unlock",
-        "Archive",
         "Freeze",
         "Unfreeze",
     }
@@ -39,8 +37,6 @@ async def async_setup_entry(
             RefreshButton(coordinator, entry, "refresh"),
             RefreshHistoryButton(coordinator, entry),
             UnlockButton(coordinator, entry),
-            EmergencyUnlockButton(coordinator, entry),
-            ArchiveButton(coordinator, entry),
             FreezeButton(coordinator, entry),
             UnfreezeButton(coordinator, entry),
         ]
@@ -139,30 +135,4 @@ class UnlockButton(ChastifyButton):
 
     async def async_press(self) -> None:
         await self.coordinator.api.async_hygienic_unlock()
-        await self.coordinator.async_request_refresh()
-
-
-class EmergencyUnlockButton(ChastifyButton):
-    _attr_name = "Emergency unlock"
-    _attr_icon = "mdi:alert-octagon"
-
-    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_emergency_unlock"
-
-    async def async_press(self) -> None:
-        await self.coordinator.api.async_action("emergency_unlock")
-        await self.coordinator.async_request_refresh()
-
-
-class ArchiveButton(ChastifyButton):
-    _attr_name = "Archive"
-    _attr_icon = "mdi:archive"
-
-    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_archive"
-
-    async def async_press(self) -> None:
-        await self.coordinator.api.async_action("archive")
         await self.coordinator.async_request_refresh()

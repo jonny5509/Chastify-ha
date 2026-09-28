@@ -2,24 +2,24 @@
 
 A Home Assistant custom integration for the Chastify Developer API.
 
-The integration connects Home Assistant to Chastify using a user-wide DEV API token and exposes session/lock state, sensors, controls, and API-backed services.
+Chastify connects Home Assistant to your Chastify account using a user-wide DEV API key. It provides session information, lock state, controls, and API-backed services, with a Config Flow for setup.
 
 ## Features
 
-- HACS-compatible Home Assistant custom integration
-- Config Flow setup
-- User-wide Chastify DEV API token authentication
-- Cloud polling of the current Chastify session/lock
-- Lock title and timing information
-- Locked time and maximum remaining time
-- Task points
-- Frozen, locked, ready-to-unlock, and task-assigned binary sensors
-- Refresh control
-- Add, remove, and apply time controls
-- Freeze and unfreeze controls
-- General Chastify action service
+- HACS-compatible custom integration
+- Home Assistant Config Flow setup
+- User-wide Chastify DEV API key authentication
+- Cloud polling of the current Chastify session
+- Automatic handling of API authentication and transient connection failures
+- Session and lock information exposed as Home Assistant entities
+- Refresh controls for the session and history
+- Lock controls including freeze, unfreeze, unlock, emergency unlock, and archive
+- Generic Chastify action service
+- Time adjustment services
 - Custom lock-log service
-- Generic device-command service for documented Chastify device API commands
+- Documented device-command service
+- Built-in Chastify dashboard card JavaScript
+- Home Assistant Hassfest validation through GitHub Actions
 
 ## Requirements
 
@@ -43,87 +43,145 @@ The integration connects Home Assistant to Chastify using a user-wide DEV API to
 ### Manual
 
 1. Download or clone this repository.
-2. Copy the `custom_components/chastify` directory into your Home Assistant `config/custom_components/` directory.
+2. Copy `custom_components/chastify` into your Home Assistant `config/custom_components/` directory.
 3. Restart Home Assistant.
 4. Add **Chastify** from **Settings → Devices & services**.
 
-For HACS installations, HACS handles updates and keeps the integration in the expected custom-component location.
+## Configuration
 
-## Authentication
+The integration is configured entirely through the Home Assistant UI.
 
-Chastify uses a user-wide DEV API key.
+When adding Chastify, enter your **user-wide DEV API key**. The integration validates the key against the Chastify API before creating the config entry.
 
-Create the key in Chastify under **Developer API → User-wide DEV API keys**. The token is shown once, so store it securely.
+If the key later becomes invalid, Home Assistant can request reauthentication so the token can be replaced without recreating the integration.
 
-Treat the API key like a password:
+### API key security
+
+Treat your Chastify API key like a password:
 
 - Do not commit it to Git.
 - Do not put it in public configuration files.
 - Do not share it in screenshots, logs, issues, or support requests.
+- Keep backups and exported configuration containing the token secure.
 
-The integration sends the token to the Chastify API when making authenticated requests.
+The integration sends the token to the Chastify API only when making authenticated requests.
+
+## Entities
+
+Chastify creates a **Session** device and exposes the current session through sensors, binary sensors, and buttons.
+
+### Sensors
+
+The integration currently provides:
+
+- **Wearer Username**
+- **Keyholder Username**
+- **Lock Title**
+- **Lock Type**
+- **Start Date**
+- **End Date**
+- **Timer Visible**
+- **Time Locked**
+- **Time Remaining**
+- **Session Role**
+- **Task Points**
+- **Task Points Required**
+- **Task Points Remaining**
+
+Some values are derived when the API response does not provide a dedicated field. For example, start and end times can be calculated from the authoritative lock-duration and remaining-time values.
+
+### Binary sensors
+
+- **Frozen**
+- **Locked**
+- **Ready to unlock**
+- **Task Assigned**
+
+### Buttons
+
+- **Refresh**
+- **Refresh history**
+- **Unlock**
+- **Emergency unlock**
+- **Archive**
+- **Freeze**
+- **Unfreeze**
+
+The Freeze button uses a one-hour freeze duration. For a custom duration, use the `chastify.freeze` service instead.
+
+Entity availability depends on the current Chastify session and the information returned by the API.
 
 ## Services
 
-The integration provides the following services:
+The integration provides these services:
 
 | Service | Purpose |
 | --- | --- |
-| `chastify.action` | Send a general Chastify action |
-| `chastify.apply_time` | Apply time through the lock API |
-| `chastify.add_time` | Add time to the current lock |
-| `chastify.remove_time` | Remove time from the current lock |
-| `chastify.freeze` | Freeze the current lock |
-| `chastify.unfreeze` | Unfreeze the current lock |
-| `chastify.log_custom` | Create a custom lock log entry |
+| `chastify.action` | Send a supported Chastify general action |
+| `chastify.apply_time` | Add or remove seconds from the active lock |
+| `chastify.add_time` | Add time to the active lock |
+| `chastify.remove_time` | Remove time from the active lock |
+| `chastify.freeze` | Freeze the active lock, optionally for a specified duration |
+| `chastify.unfreeze` | Unfreeze the active lock |
+| `chastify.hygienic_unlock` | Request a hygienic unlock |
+| `chastify.log_custom` | Create a custom lock-log entry |
 | `chastify.device_command` | Send a documented Chastify device command |
 
-The `action` and `device_command` services are intentionally generic so API commands can be exposed without requiring a dedicated Home Assistant service for every Chastify API operation.
+### Generic action
 
-Only use commands and parameters supported by the Chastify API. Generic API access does not bypass Chastify's own permissions or server-side restrictions.
+`chastify.action` accepts an action name and optional parameters.
 
-## API coverage
+Use only actions supported by the Chastify API. The integration does not bypass Chastify permissions or server-side restrictions.
 
-The integration uses the Chastify user-wide DEV token API:
+### Time controls
+
+- `chastify.apply_time` accepts positive or negative seconds.
+- `chastify.add_time` accepts positive seconds.
+- `chastify.remove_time` accepts positive seconds and sends the corresponding negative adjustment.
+- `chastify.freeze` accepts an optional duration between 60 and 86,400 seconds.
+
+### Custom logs
+
+`chastify.log_custom` supports:
+
+- Title
+- Description
+- Role: `extension`, `wearer`, or `keyholder`
+- Icon
+- Color
+
+### Device commands
+
+`chastify.device_command` accepts a documented Chastify device command and optional parameters.
+
+Only use commands and parameters supported by Chastify. Generic API access does not bypass authentication, authorization, or server-side restrictions.
+
+## API
+
+The integration communicates with the Chastify user-wide DEV token API:
 
 `https://chastify.net/api/apps/v1/`
 
-Current integration coverage includes:
+Current API operations used by the integration include:
 
 - `GET /session`
-- `POST /action`
+- General action requests
 - `POST /lock/apply-time`
 - `POST /lock/freeze`
 - `POST /lock/unfreeze`
 - `POST /logs/custom`
-- `POST /device-command`
+- Device-command requests
+- Hygienic unlock requests
 
-API behaviour and permissions are controlled by Chastify. The Home Assistant integration does not provide a way to bypass Chastify's authentication, authorization, or server-side rules.
+Exact API behaviour and permissions are controlled by Chastify.
 
-## Entities
+## Dashboard card
 
-The integration exposes session information through Home Assistant entities, including:
+The integration includes a JavaScript dashboard card at:
 
-### Sensors
+`/chastify/chastify-card.js`
 
-- Frozen
-- Keyholder Username
-- Lock Title
-- Locked
-- Maximum Time Remaining
-- Ready to unlock
-- Session Role
-- Task Assigned
-- Task Points
-- Task Points Remaining
-- Task Points Required
-- Time Locked
-- Time Remaining
-- Wearer Username
-
-A refresh control is also provided to request an immediate update instead of waiting for the normal polling cycle.
-
-Entity availability depends on the current Chastify session and the data returned by the API.
+Home Assistant registers the card automatically when the integration is loaded. The card can be used as a frontend resource for a Chastify-focused dashboard.
 
 ## Troubleshooting
 
@@ -132,40 +190,65 @@ Entity availability depends on the current Chastify session and the data returne
 Check that:
 
 1. The DEV API key is correct.
-2. The key is a user-wide key rather than a different API credential.
+2. The key is a user-wide DEV API key.
 3. The token has not been revoked or replaced.
 4. Home Assistant can reach the Chastify API.
 
+If the existing token becomes invalid, use the reauthentication prompt provided by Home Assistant.
+
 ### The integration installs but entities are unavailable
 
-Check the Home Assistant logs and confirm that Chastify is returning a valid session response. Some entities depend on information that may only be present when a relevant Chastify session or lock exists.
+Check the Home Assistant logs and confirm that Chastify is returning a valid session response.
+
+Some entities depend on information that is only available when a relevant Chastify session or lock exists.
 
 ### A generic API command fails
 
-Verify the API endpoint, HTTP method, command name, and parameters against the documented Chastify API. Generic services intentionally pass through API functionality and cannot make an unsupported Chastify command valid.
+Verify the command, HTTP method, endpoint, and parameters against the documented Chastify API. Generic services intentionally expose API functionality without creating a separate Home Assistant service for every possible Chastify operation.
+
+### The session is not updating
+
+The integration uses cloud polling through a Home Assistant data coordinator. Use the **Refresh** button to request an immediate update and check the Home Assistant logs if the API is unreachable.
 
 ## Development
 
-The repository contains the Home Assistant custom integration under `custom_components/chastify/`.
+The Home Assistant integration lives under:
 
-GitHub Actions are included for HACS and Home Assistant Hassfest validation.
+`custom_components/chastify/`
+
+Important components include:
+
+- `manifest.json` — Home Assistant integration metadata
+- `config_flow.py` — UI setup and reauthentication
+- `api.py` — Chastify API client
+- `coordinator.py` — polling and shared API state
+- `sensor.py` — session sensors
+- `binary_sensor.py` — lock/session binary sensors
+- `button.py` — session controls
+- `services.yaml` — service descriptions and UI selectors
+- `www/chastify-card.js` — dashboard card
+
+GitHub Actions run Home Assistant Hassfest validation.
 
 When developing changes:
 
 1. Keep the integration domain as `chastify`.
-2. Preserve Home Assistant Config Flow compatibility.
-3. Avoid logging API tokens or other credentials.
-4. Validate changes with the repository's GitHub Actions before release.
+2. Preserve Config Flow compatibility.
+3. Do not log API tokens or other credentials.
+4. Keep `manifest.json` keys ordered as required by Hassfest.
+5. Validate changes with GitHub Actions before release.
 
 ## Existing installations
 
-If you are upgrading an existing installation, restart Home Assistant after updating the integration. HACS users can use the normal HACS update flow.
+After updating the integration, restart Home Assistant so the new code and frontend card are loaded.
 
-If an update changes configuration or entity behaviour, check **Settings → Devices & services → Chastify** and the Home Assistant logs after restarting.
+If you use HACS, use the normal HACS update flow and then restart Home Assistant.
+
+The integration includes migration logic for older config entries and removes several obsolete entity-registry entries when upgrading.
 
 ## Repository
 
-Source code and issue tracking are available in this repository:
+Source code, releases, and issue tracking:
 
 `https://github.com/jonny5509/Chastify-ha`
 

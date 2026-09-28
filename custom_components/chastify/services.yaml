@@ -1,0 +1,119 @@
+action:
+  name: Action
+  description: Call a supported Chastify general action.
+  fields:
+    name:
+      name: Action name
+      required: true
+      example: add_time
+      selector:
+        text:
+    params:
+      name: Parameters
+      description: Action-specific parameters.
+      selector:
+        object:
+
+apply_time:
+  name: Apply time
+  description: Add or remove seconds from the active lock.
+  fields:
+    seconds:
+      name: Seconds
+      required: true
+      example: 600
+      selector:
+        number:
+          min: -86400
+          max: 86400
+          step: 1
+          mode: box
+
+add_time:
+  name: Add time
+  fields:
+    seconds:
+      name: Seconds
+      required: true
+      example: 600
+      selector:
+        number:
+          min: 1
+          max: 86400
+          step: 1
+          mode: box
+
+remove_time:
+  name: Remove time
+  fields:
+    seconds:
+      name: Seconds
+      required: true
+      example: 300
+      selector:
+        number:
+          min: 1
+          max: 86400
+          step: 1
+          mode: box
+
+freeze:
+  name: Freeze
+  fields:
+    duration_seconds:
+      name: Duration
+      required: true
+      example: 1800
+      selector:
+        number:
+          min: 1
+          max: 86400
+          step: 1
+          mode: box
+
+unfreeze:
+  name: Unfreeze
+
+log_custom:
+  name: Custom lock log
+  fields:
+    title:
+      name: Title
+      required: true
+      selector:
+        text:
+    description:
+      name: Description
+      selector:
+        text:
+    role:
+      name: Role
+      selector:
+        select:
+          options:
+            - extension
+            - wearer
+            - keyholder
+    icon:
+      name: Icon
+      selector:
+        text:
+    color:
+      name: Color
+      selector:
+        text:
+
+device_command:
+  name: Device command
+  description: Send a documented Chastify device command to the active connected device.
+  fields:
+    command:
+      name: Command
+      required: true
+      example: all.stop
+      selector:
+        text:
+    params:
+      name: Parameters
+      selector:
+        object:

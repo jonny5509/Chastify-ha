@@ -1,0 +1,28 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Chastify",
+        "description": "Enter your user-wide DEV API token.",
+        "data": {
+          "token": "DEV API token"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate Chastify",
+        "description": "The Chastify DEV API token is no longer accepted. Enter a new token.",
+        "data": {
+          "token": "DEV API token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "The DEV API token was rejected.",
+      "cannot_connect": "Unable to connect to Chastify."
+    },
+    "abort": {
+      "already_configured": "Chastify is already configured.",
+      "reauth_successful": "Chastify was re-authenticated successfully."
+    }
+  }
+}

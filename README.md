@@ -185,3 +185,5 @@ This project is licensed under the [MIT License](LICENSE).
 
 - [Repository](https://github.com/jonny5509/Chastify-ha)
 - [Issues](https://github.com/jonny5509/Chastify-ha/issues)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jonny5509)

@@ -19,11 +19,9 @@ jobs:
 
       - name: Build HACS ZIP
         run: |
-          rm -rf build chastify.zip
-          mkdir -p build/chastify/custom_components
-          cp -r custom_components/chastify build/chastify/custom_components/
-          cd build
-          zip -r ../chastify.zip chastify
+          rm -f chastify.zip
+          cd custom_components/chastify
+          zip -r ../../chastify.zip .
 
       - name: Upload ZIP to release
         uses: softprops/action-gh-release@v3

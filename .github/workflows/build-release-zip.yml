@@ -1,0 +1,33 @@
+name: Build HACS Release ZIP
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout released tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      - name: Build HACS ZIP
+        run: |
+          rm -rf build chastify.zip
+          mkdir -p build/chastify/custom_components
+          cp -r custom_components/chastify build/chastify/custom_components/
+          cd build
+          zip -r ../chastify.zip chastify
+
+      - name: Upload ZIP to release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.release.tag_name }}
+          files: chastify.zip
+          fail_on_unmatched_files: true

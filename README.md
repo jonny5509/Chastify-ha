@@ -1,56 +1,75 @@
 # Chastify for Home Assistant
 
-A Home Assistant custom integration for the Chastify Developer API.
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/jonny5509/Chastify-ha)
+[![HACS](https://img.shields.io/badge/HACS-Custom%20Integration-41BDF5.svg)](https://hacs.xyz/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-Monitor your current Chastify session, lock state, countdowns, and controls from Home Assistant.
+A Home Assistant custom integration for the **Chastify Developer API**.
 
-## Features
+Chastify brings session status, lock information, countdowns, supported lock actions, time adjustments, custom logs, and device commands into Home Assistant through a native Config Flow integration.
 
-- HACS-compatible custom integration
-- Home Assistant Config Flow setup
-- User-wide DEV API key authentication
-- Session and lock sensors
-- Refresh controls
-- Freeze, unfreeze, unlock, emergency unlock, and archive
-- Time adjustment services
-- Custom lock logs and device commands
-- Built-in Lovelace dashboard card
+## ✨ Features
 
-## Requirements
+- 🧩 Home Assistant Config Flow setup
+- 🔑 User-wide DEV API key authentication
+- 🔒 Session and lock sensors
+- ⏱️ Lock countdown information
+- 🎛️ Refresh and lock-control buttons
+- ❄️ Freeze and unfreeze support
+- 🔓 Unlock, emergency unlock, and archive actions
+- ➕➖ Time adjustment services
+- 📝 Custom lock logs
+- 📱 Supported device commands
+- 🩹 Hygienic unlock support
+- 🖥️ Built-in Lovelace dashboard card
+- 📦 HACS-compatible installation
 
-- Home Assistant
+## 📋 Requirements
+
+- Home Assistant with support for custom integrations
 - A Chastify account
 - A Chastify user-wide DEV API key
 - Network access to the Chastify API
 - [HACS](https://hacs.xyz/) — recommended
 
-## Installation
+## 🚀 Installation
 
 ### HACS
 
 1. Open **HACS → Integrations**.
-2. Search for **Chastify** and install it.
+2. Search for **Chastify** and select **Download**.
 3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add Integration**.
+4. Open **Settings → Devices & services**.
+5. Select **Add Integration**.
+6. Search for **Chastify** and complete setup.
+
+If it is not yet listed in HACS, add this repository as a custom repository:
+
+`https://github.com/jonny5509/Chastify-ha`
+
+### Manual installation
+
+1. Download or clone this repository.
+2. Copy `custom_components/chastify` to your Home Assistant `config/custom_components/` directory.
+3. Restart Home Assistant.
+4. Open **Settings → Devices & services → Add Integration**.
 5. Search for **Chastify** and complete setup.
 
-If it is not listed, add `https://github.com/jonny5509/Chastify-ha` as a custom repository.
+## ⚙️ Configuration
 
-### Manual
+Configuration is performed through the Home Assistant UI.
 
-Copy `custom_components/chastify` into `config/custom_components/`, restart Home Assistant, then add **Chastify** from **Settings → Devices & services**.
+You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication.
 
-## Configuration
+### 🔑 API key security
 
-Setup is handled through the Home Assistant UI.
+Treat your API key like a password.
 
-You will need your **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication.
+- Never commit it to Git.
+- Do not publish it in screenshots, logs, or support requests.
+- Rotate the key if you believe it has been exposed.
 
-### API key security
-
-Treat your API key like a password. Do not share it, commit it to Git, or include it in public screenshots, logs, or configuration files.
-
-## Entities
+## 📊 Entities
 
 ### Sensors
 
@@ -82,7 +101,7 @@ Treat your API key like a password. Do not share it, commit it to Git, or includ
 - Freeze
 - Unfreeze
 
-## Services
+## 🛠️ Services
 
 | Service | Purpose |
 | --- | --- |
@@ -96,25 +115,29 @@ Treat your API key like a password. Do not share it, commit it to Git, or includ
 | `chastify.log_custom` | Create a custom lock log |
 | `chastify.device_command` | Send a documented device command |
 
-Use only actions and commands supported by Chastify.
+Use only actions and commands supported by the Chastify API and your account.
 
-## Dashboard Card
+## 🖥️ Lovelace dashboard card
 
-A built-in Lovelace card is available at `/chastify/chastify-card.js`.
+A bundled Lovelace card is available at:
 
-## API
+`/chastify/chastify-card.js`
+
+The card provides a convenient Home Assistant dashboard interface for Chastify session and lock information.
+
+## 🌐 API
 
 The integration communicates with the Chastify user-wide DEV API.
 
 Supported functionality includes session information, lock actions, time adjustments, freeze/unfreeze, custom logs, device commands, and hygienic unlock.
 
-Chastify remains responsible for authentication, permissions, and server-side restrictions.
+Chastify remains responsible for authentication, permissions, validation, and server-side restrictions.
 
-## Troubleshooting
+## 🧰 Troubleshooting
 
 ### Authentication fails
 
-Check your DEV API key and make sure Home Assistant can reach the Chastify API.
+Verify your DEV API key and make sure Home Assistant can reach the Chastify API.
 
 ### Entities are unavailable
 
@@ -122,28 +145,43 @@ Some entities require an active Chastify session or lock.
 
 ### A service fails
 
-Check the action or command against the supported Chastify API.
+Check that the action or command is supported by the Chastify API and permitted for the current account/session.
 
-### Session is not updating
+### Session data is not updating
 
-Use **Refresh** and check the Home Assistant logs if the API is unreachable.
+Use the **Refresh** control and check the Home Assistant logs if the API is unreachable or returning errors.
 
-## Development
+## 👩‍💻 Development
 
-The integration is located in `custom_components/chastify/`.
+Integration source code is located in `custom_components/chastify/`.
 
-Key files include `api.py`, `config_flow.py`, `coordinator.py`, `sensor.py`, `binary_sensor.py`, `button.py`, `services.yaml`, and `www/chastify-card.js`.
+Important components include:
+
+- `api.py`
+- `config_flow.py`
+- `coordinator.py`
+- `sensor.py`
+- `binary_sensor.py`
+- `button.py`
+- `services.yaml`
+- `www/chastify-card.js`
 
 GitHub Actions run Home Assistant Hassfest validation.
 
-## Existing Installations
+## 🔄 Updating
 
-Update through HACS or replace the integration files, then restart Home Assistant. Reauthenticate if requested.
+For HACS installations:
 
-## Repository
+1. Update **Chastify** from HACS.
+2. Restart Home Assistant.
+3. Reload the dashboard if the card does not immediately reflect the update.
+4. Reauthenticate if Home Assistant requests it.
 
-[GitHub repository](https://github.com/jonny5509/Chastify-ha)
+## 📄 License
 
-## License
+This project is licensed under the [MIT License](LICENSE).
 
-This project is licensed under the MIT License. See [LICENSE](LICENSE).
+## 🔗 Links
+
+- [Repository](https://github.com/jonny5509/Chastify-ha)
+- [Issues](https://github.com/jonny5509/Chastify-ha/issues)

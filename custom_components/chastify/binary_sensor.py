@@ -19,7 +19,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ):
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data
 
     registry = er.async_get(hass)
     allowed = {"Locked", "Ready to unlock", "Frozen", "Task Assigned"}

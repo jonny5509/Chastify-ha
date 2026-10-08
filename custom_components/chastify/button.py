@@ -8,6 +8,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .api import ChastifyApiError
 from .const import DOMAIN
 from .coordinator import ChastifyCoordinator
 
@@ -20,11 +21,8 @@ async def _async_api_call(func, *args) -> None:
     """Convert Chastify API failures into user-visible Home Assistant errors."""
     try:
         await func(*args)
-    except Exception as err:
-        from .api import ChastifyApiError
-        if isinstance(err, ChastifyApiError):
-            raise HomeAssistantError(f"Chastify API error: {err}") from err
-        raise
+    except ChastifyApiError as err:
+        raise HomeAssistantError(f"Chastify API error: {err}") from err
 
 
 async def async_setup_entry(

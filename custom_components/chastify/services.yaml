@@ -62,11 +62,11 @@ freeze:
   fields:
     duration_seconds:
       name: Duration
-      required: true
+      required: false
       example: 1800
       selector:
         number:
-          min: 1
+          min: 60
           max: 86400
           step: 1
           mode: box

@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -20,21 +19,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data
 
-    # Remove sensor entities from older versions that are not in the requested list.
-    registry = er.async_get(hass)
-    allowed = {
-        "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
-        "Start Date", "End Date", "Timer Visible", "Time Locked",
-        "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining",
-    }
-    for entity in list(registry.entities.values()):
-        if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
-            if (entity.original_name or entity.name or "") not in allowed:
-                registry.async_remove(entity.entity_id)
-
+    # Entity cleanup is handled by config-entry migrations; do not mutate the registry during setup.
     async_add_entities([
         ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
         ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle"),
@@ -63,6 +50,8 @@ class ChastifyBaseSensor(CoordinatorEntity[ChastifyCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{key}"
+        if key in {"start_date", "end_date"}:
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{device_id}")},
             name=device_name,
@@ -132,6 +121,9 @@ class ChastifySensor(ChastifyBaseSensor):
         if value is None:
             return None
 
+        if self._data_key in {"startDate", "endDate"}:
+            return _parse_datetime(value)
+
         if self._data_key.endswith("LastSeenTimestamp"):
             try:
                 timestamp = float(value)
@@ -161,6 +153,8 @@ class ChastifyNumberSensor(ChastifyBaseSensor):
 
 class ChastifyDurationSensor(ChastifyBaseSensor):
     _attr_icon = "mdi:timer-outline"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = "s"
 
 
     def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
@@ -168,14 +162,9 @@ class ChastifyDurationSensor(ChastifyBaseSensor):
         self._data_key = data_key
 
     @property
-    def native_value(self) -> str | None:
+    def native_value(self) -> int | float | None:
         value = _number(field(self.coordinator.data, self._data_key))
-        if value is None:
-            return None
-        total_seconds = max(0, int(value))
-        hours, remainder = divmod(total_seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return None if value is None else max(0, value)
 
 
 class ChastifyDerivedNumberSensor(ChastifyBaseSensor):

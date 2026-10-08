@@ -18,7 +18,7 @@ async def _validate_token(token: str) -> None:
 
 
 class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 5
+    VERSION = 19
 
     async def async_step_user(self, user_input=None):
         if self._async_current_entries():
@@ -41,7 +41,7 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await self.async_set_unique_id("chastify")
                     self._abort_if_unique_id_configured()
                     return self.async_create_entry(
-                        title="Chastify - jonny5509",
+                        title="Chastify",
                         data={CONF_TOKEN: token},
                     )
 
@@ -69,12 +69,10 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             except ChastifyApiError:
                 errors["base"] = "cannot_connect"
             else:
-                self.hass.config_entries.async_update_entry(
+                return self.async_update_reload_and_abort(
                     self._reauth_entry,
-                    data={**self._reauth_entry.data, CONF_TOKEN: token},
+                    data_updates={CONF_TOKEN: token},
                 )
-                self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
-                return self.async_abort(reason="reauth_successful")
 
         return self.async_show_form(
             step_id="reauth_confirm",

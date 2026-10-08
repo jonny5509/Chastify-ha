@@ -11,7 +11,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import device_registry as dr, entity_registry as er
@@ -152,35 +152,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entity.device_id != my_lock.id:
             er.async_update_entity(entity.entity_id, device_id=my_lock.id)
 
+    async def _call_api(func, *args):
+        try:
+            return await func(*args)
+        except (ChastifyApiError, ChastifyNoActiveSession) as err:
+            raise HomeAssistantError(f"Chastify API error: {err}") from err
+
     async def action(call: ServiceCall):
-        await api.async_action(call.data[ATTR_NAME], call.data.get(ATTR_PARAMS))
+        await _call_api(api.async_action, call.data[ATTR_NAME], call.data.get(ATTR_PARAMS))
 
     async def apply_time(call: ServiceCall):
-        await api.async_apply_time(int(call.data[ATTR_SECONDS]))
+        await _call_api(api.async_apply_time, int(call.data[ATTR_SECONDS]))
 
     async def add_time(call: ServiceCall):
-        await api.async_apply_time(abs(int(call.data[ATTR_SECONDS])))
+        await _call_api(api.async_apply_time, abs(int(call.data[ATTR_SECONDS])))
 
     async def remove_time(call: ServiceCall):
-        await api.async_apply_time(-abs(int(call.data[ATTR_SECONDS])))
+        await _call_api(api.async_apply_time, -abs(int(call.data[ATTR_SECONDS])))
 
     async def freeze(call: ServiceCall):
-        await api.async_freeze(call.data.get(ATTR_DURATION_SECONDS))
+        await _call_api(api.async_freeze, call.data.get(ATTR_DURATION_SECONDS))
 
     async def unfreeze(call: ServiceCall):
-        await api.async_unfreeze()
+        await _call_api(api.async_unfreeze)
 
     async def hygienic_unlock(call: ServiceCall):
-        await api.async_hygienic_unlock()
+        await _call_api(api.async_hygienic_unlock)
 
     async def custom_log(call: ServiceCall):
-        await api.async_custom_log(
+        await _call_api(
+            api.async_custom_log,
             call.data[ATTR_TITLE], call.data.get(ATTR_DESCRIPTION),
             call.data.get(ATTR_ROLE), call.data.get(ATTR_ICON), call.data.get(ATTR_COLOR)
         )
 
     async def device_command(call: ServiceCall):
-        await api.async_device_command(call.data[ATTR_COMMAND], call.data.get(ATTR_PARAMS))
+        await _call_api(api.async_device_command, call.data[ATTR_COMMAND], call.data.get(ATTR_PARAMS))
 
     registrations = {
         SERVICE_ACTION: (action, vol.Schema({vol.Required(ATTR_NAME): str, vol.Optional(ATTR_PARAMS): object})),
@@ -206,6 +213,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
+        for name in registrations:
+            if hass.services.has_service(DOMAIN, name):
+                hass.services.async_remove(DOMAIN, name)
         await data["api"].async_close()
         hass.data[DOMAIN].pop(entry.entry_id, None)
 

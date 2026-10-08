@@ -3,6 +3,7 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -13,6 +14,17 @@ from .coordinator import ChastifyCoordinator
 FREEZE_BUTTON_DURATION_SECONDS = 3600
 ADD_DAY_SECONDS = 86400
 ADD_HOUR_SECONDS = 3600
+
+
+async def _async_api_call(func, *args) -> None:
+    """Convert Chastify API failures into user-visible Home Assistant errors."""
+    try:
+        await func(*args)
+    except Exception as err:
+        from .api import ChastifyApiError
+        if isinstance(err, ChastifyApiError):
+            raise HomeAssistantError(f"Chastify API error: {err}") from err
+        raise
 
 
 async def async_setup_entry(
@@ -100,7 +112,7 @@ class FreezeButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_freeze(FREEZE_BUTTON_DURATION_SECONDS)
+        await _async_api_call(self.coordinator.api.async_freeze, FREEZE_BUTTON_DURATION_SECONDS)
         await self.coordinator.async_request_refresh()
 
 
@@ -117,7 +129,7 @@ class UnfreezeButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_unfreeze()
+        await _async_api_call(self.coordinator.api.async_unfreeze)
         await self.coordinator.async_request_refresh()
 
 
@@ -148,7 +160,7 @@ class UnlockButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_hygienic_unlock()
+        await _async_api_call(self.coordinator.api.async_hygienic_unlock)
         await self.coordinator.async_request_refresh()
 
 
@@ -165,7 +177,7 @@ class AddOneDayButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_apply_time(ADD_DAY_SECONDS)
+        await _async_api_call(self.coordinator.api.async_apply_time, ADD_DAY_SECONDS)
         await self.coordinator.async_request_refresh()
 
 
@@ -182,7 +194,7 @@ class AddOneHourButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_apply_time(ADD_HOUR_SECONDS)
+        await _async_api_call(self.coordinator.api.async_apply_time, ADD_HOUR_SECONDS)
         await self.coordinator.async_request_refresh()
 
 
@@ -199,7 +211,7 @@ class SubtractOneDayButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_apply_time(-ADD_DAY_SECONDS)
+        await _async_api_call(self.coordinator.api.async_apply_time, -ADD_DAY_SECONDS)
         await self.coordinator.async_request_refresh()
 
 
@@ -216,7 +228,7 @@ class SubtractOneHourButton(ChastifyButton):
         return super().available and bool(self.coordinator.data)
 
     async def async_press(self) -> None:
-        await self.coordinator.api.async_apply_time(-ADD_HOUR_SECONDS)
+        await _async_api_call(self.coordinator.api.async_apply_time, -ADD_HOUR_SECONDS)
         await self.coordinator.async_request_refresh()
 
 

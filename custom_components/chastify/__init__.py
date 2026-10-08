@@ -11,8 +11,9 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .api import ChastifyApi
 from .const import (
@@ -57,10 +58,8 @@ def _get_coordinator(hass: HomeAssistant) -> ChastifyCoordinator:
     return entries[0].runtime_data
 
 
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Set up Chastify services and the optional Lovelace card."""
-    hass.data.setdefault(DOMAIN, {})
-
     card_file = Path(__file__).resolve().parent / "www" / "chastify-card.js"
     if card_file.is_file():
         await hass.http.async_register_static_paths(
@@ -250,7 +249,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await coordinator.async_config_entry_first_refresh()
-    except ConfigEntryAuthFailed:
+    except Exception:
         await api.async_close()
         entry.runtime_data = None
         raise

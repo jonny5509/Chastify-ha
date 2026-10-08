@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-import logging
 from pathlib import Path
-from typing import Any
-
 import voluptuous as vol
 
 from homeassistant.components import frontend
@@ -11,7 +8,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.exceptions import ConfigEntryAuthFailed, ServiceValidationError
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
@@ -41,7 +38,6 @@ from .const import (
 )
 from .coordinator import ChastifyCoordinator
 
-_LOGGER = logging.getLogger(__name__)
 
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 PLATFORMS: list[Platform] = [
@@ -54,7 +50,7 @@ PLATFORMS: list[Platform] = [
 def _get_coordinator(hass: HomeAssistant) -> ChastifyCoordinator:
     entries = hass.config_entries.async_entries(DOMAIN)
     if not entries or entries[0].runtime_data is None:
-        raise HomeAssistantError("Chastify is not configured")
+        raise ServiceValidationError("Chastify is not loaded")
     return entries[0].runtime_data
 
 

@@ -5,7 +5,6 @@ import json
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -20,13 +19,6 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ):
     coordinator = entry.runtime_data
-
-    registry = er.async_get(hass)
-    allowed = {"Locked", "Ready to unlock", "Frozen", "Task Assigned"}
-    for entity in list(registry.entities.values()):
-        if entity.config_entry_id == entry.entry_id and entity.domain == "binary_sensor":
-            if (entity.original_name or entity.name or "") not in allowed:
-                registry.async_remove(entity.entity_id)
 
     async_add_entities([
         ChastifyBinary(coordinator, entry, "frozen", "Frozen", "frozen"),
@@ -66,7 +58,9 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
                     {"unlockable", "readyToUnlock", "ready_to_unlock", "isUnlockable", "canUnlock"},
                 )
         elif self._data_key == "locked":
-            value = bool(self.coordinator.data)
+            value = field(self.coordinator.data, "locked")
+            if value is None:
+                value = bool(self.coordinator.data)
         else:
             value = field(self.coordinator.data, self._data_key)
 

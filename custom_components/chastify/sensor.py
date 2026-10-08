@@ -20,21 +20,9 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    coordinator = entry.runtime_data
 
     # Remove sensor entities from older versions that are not in the requested list.
-    registry = er.async_get(hass)
-    allowed = {
-        "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
-        "Start Date", "End Date", "Timer Visible", "Time Locked",
-        "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining",
-    }
-    for entity in list(registry.entities.values()):
-        if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
-            if (entity.original_name or entity.name or "") not in allowed:
-                registry.async_remove(entity.entity_id)
-
     async_add_entities([
         ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
         ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle"),
@@ -161,6 +149,8 @@ class ChastifyNumberSensor(ChastifyBaseSensor):
 
 class ChastifyDurationSensor(ChastifyBaseSensor):
     _attr_icon = "mdi:timer-outline"
+    _attr_device_class = SensorDeviceClass.DURATION
+    _attr_native_unit_of_measurement = "s"
 
 
     def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
@@ -168,14 +158,9 @@ class ChastifyDurationSensor(ChastifyBaseSensor):
         self._data_key = data_key
 
     @property
-    def native_value(self) -> str | None:
+    def native_value(self) -> int | float | None:
         value = _number(field(self.coordinator.data, self._data_key))
-        if value is None:
-            return None
-        total_seconds = max(0, int(value))
-        hours, remainder = divmod(total_seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return None if value is None else max(0, value)
 
 
 class ChastifyDerivedNumberSensor(ChastifyBaseSensor):

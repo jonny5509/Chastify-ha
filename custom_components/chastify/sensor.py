@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
-from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -22,7 +21,7 @@ async def async_setup_entry(
 ) -> None:
     coordinator = entry.runtime_data
 
-    # Remove sensor entities from older versions that are not in the requested list.
+    # Entity cleanup is handled by config-entry migrations; do not mutate the registry during setup.
     async_add_entities([
         ChastifySensor(coordinator, entry, "keyholder_username", "Keyholder Username", "keyholderUsername"),
         ChastifySensor(coordinator, entry, "lock_title", "Lock Title", "lockTitle"),
@@ -51,6 +50,8 @@ class ChastifyBaseSensor(CoordinatorEntity[ChastifyCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{key}"
+        if key in {"start_date", "end_date"}:
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_{device_id}")},
             name=device_name,
@@ -119,6 +120,9 @@ class ChastifySensor(ChastifyBaseSensor):
 
         if value is None:
             return None
+
+        if self._data_key in {"startDate", "endDate"}:
+            return _parse_datetime(value)
 
         if self._data_key.endswith("LastSeenTimestamp"):
             try:

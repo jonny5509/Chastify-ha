@@ -16,7 +16,6 @@ Chastify brings session status, lock information, countdowns, supported lock act
 - ⏱️ Lock countdown information
 - 🎛️ Refresh and lock-control buttons
 - ❄️ Freeze and unfreeze support
-- 🔓 Unlock, emergency unlock, and archive actions
 - ➕➖ Time adjustment services
 - 📝 Custom lock logs
 - 📱 Supported device commands
@@ -26,7 +25,7 @@ Chastify brings session status, lock information, countdowns, supported lock act
 
 ## 📋 Requirements
 
-- Home Assistant with support for custom integrations
+- Home Assistant 2026.10 or newer (custom integrations supported)
 - A Chastify account
 - A Chastify user-wide DEV API key
 - Network access to the Chastify API
@@ -95,9 +94,7 @@ Treat your API key like a password.
 
 - Refresh
 - Refresh history
-- Unlock
-- Emergency unlock
-- Archive
+- Hygienic unlock
 - Freeze
 - Unfreeze
 
@@ -167,6 +164,10 @@ Important components include:
 - `www/chastify-card.js`
 
 GitHub Actions run Home Assistant Hassfest validation.
+
+## 🧪 Compatibility
+
+This release is maintained and tested against current Home Assistant APIs. It uses config-entry runtime data, modern coordinator setup, native sensor value/unit APIs, and config-flow migrations compatible with Home Assistant 2026.10.
 
 ## 🔄 Updating
 

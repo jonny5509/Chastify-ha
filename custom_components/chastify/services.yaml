@@ -38,7 +38,7 @@ add_time:
       example: 600
       selector:
         number:
-          min: 1
+          min: 60
           max: 86400
           step: 1
           mode: box

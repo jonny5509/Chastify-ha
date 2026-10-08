@@ -20,26 +20,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    registry = er.async_get(hass)
-    allowed = {
-        "Refresh",
-        "Refresh history",
-        "Hygienic unlock",
-        "Add 1 day",
-        "Add 1 hour",
-        "Subtract 1 day",
-        "Subtract 1 hour",
-        "Emergency unlock",
-        "Archive",
-        "Freeze",
-        "Unfreeze",
-    }
-    for entity in list(registry.entities.values()):
-        if entity.config_entry_id == entry.entry_id and entity.domain == "button":
-            if (entity.original_name or entity.name or "") not in allowed:
-                registry.async_remove(entity.entity_id)
-
+    coordinator = entry.runtime_data
     async_add_entities(
         [
             RefreshButton(coordinator, entry, "refresh"),

@@ -13,6 +13,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 
 from .api import (
@@ -118,7 +119,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    api = ChastifyApi(entry.data[CONF_TOKEN])
+    api = ChastifyApi(entry.data[CONF_TOKEN], async_get_clientsession(hass))
     coordinator = ChastifyCoordinator(hass, api, entry)
 
     # Let the coordinator own the initial API refresh. This keeps a temporary

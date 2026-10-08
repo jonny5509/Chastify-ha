@@ -57,6 +57,18 @@ PLATFORMS: list[Platform] = [
     Platform.BUTTON,
 ]
 
+SERVICE_NAMES = (
+    SERVICE_ACTION,
+    SERVICE_APPLY_TIME,
+    SERVICE_ADD_TIME,
+    SERVICE_REMOVE_TIME,
+    SERVICE_FREEZE,
+    SERVICE_UNFREEZE,
+    SERVICE_HYGIENIC_UNLOCK,
+    SERVICE_LOG,
+    SERVICE_DEVICE_COMMAND,
+)
+
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
@@ -213,7 +225,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        for name in registrations:
+        for name in SERVICE_NAMES:
             if hass.services.has_service(DOMAIN, name):
                 hass.services.async_remove(DOMAIN, name)
         await data["api"].async_close()

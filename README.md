@@ -17,11 +17,10 @@ Chastify brings session status, lock information, countdowns, supported lock act
 - ⏱️ Lock countdown information
 - 🎛️ Refresh and lock-control buttons
 - ❄️ Freeze and unfreeze support
-- 🔓 Unlock, emergency unlock, and archive actions
+- 🩹 Hygienic unlock support (where supported by the API)
 - ➕➖ Time adjustment services
 - 📝 Custom lock logs
 - 📱 Supported device commands
-- 🩹 Hygienic unlock support
 - 🖥️ Built-in Lovelace dashboard card
 - 📦 HACS-compatible installation
 
@@ -100,9 +99,9 @@ The integration provides a native Home Assistant **Session Calendar** entity. It
 
 - Refresh
 - Refresh history
-- Unlock
-- Emergency unlock
-- Archive
+- Hygienic unlock
+- Add 1 day / Add 1 hour
+- Subtract 1 day / Subtract 1 hour
 - Freeze
 - Unfreeze
 

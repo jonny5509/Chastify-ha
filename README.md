@@ -73,7 +73,7 @@ Treat your API key like a password.
 
 ### Calendar
 
-The integration provides a native Home Assistant **Session Calendar** entity. It exposes the current Chastify session as a calendar event, updates its expected end time as the remaining-time counter changes, and saves completed sessions in Home Assistant storage so they remain in calendar history across restarts. History is collected from the time the feature is installed; older sessions can only be added if Chastify makes them available. Updates are written in order so a slower storage write cannot overwrite newer history, and pending writes are awaited when the entity unloads. History is retained indefinitely unless Home Assistant integration storage is removed. This is a Home Assistant calendar entity; it does not create events in Google Calendar, Outlook, or another external calendar.
+The integration provides a native Home Assistant **Session Calendar** entity. It exposes the current Chastify session as a calendar event, updates its expected end time as the remaining-time counter changes, and saves completed sessions in Home Assistant storage so they remain in calendar history across restarts. History is collected from the time the feature is installed; older sessions can only be added if Chastify makes them available. Updates are written in order so a slower storage write cannot overwrite newer history, and pending writes are awaited when the entity unloads. History is retained indefinitely unless you press the **Clear calendar history** button or remove Home Assistant integration storage. Clearing history preserves the currently active session. This is a Home Assistant calendar entity; it does not create events in Google Calendar, Outlook, or another external calendar.
 
 ### Sensors
 
@@ -99,6 +99,7 @@ The integration provides a native Home Assistant **Session Calendar** entity. It
 
 - Refresh
 - Refresh history
+- Clear calendar history (removes completed local calendar records while preserving the active session)
 - Hygienic unlock
 - Add 1 day / Add 1 hour
 - Subtract 1 day / Subtract 1 hour

@@ -158,7 +158,7 @@ def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
             self.release_first = asyncio.Event()
 
         async def async_save(self, snapshot) -> None:
-            self.calls.append(snapshot["version"])
+            self.calls.append(snapshot)
             if snapshot["version"] == 1:
                 self.first_started.set()
                 await self.release_first.wait()
@@ -173,14 +173,19 @@ def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
         second_snapshot = {"version": 2, "events": [{"uid": "new"}]}
         second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
         await asyncio.sleep(0)
-        assert store.calls == [1]
+        assert [item["version"] for item in store.calls] == [1]
 
         # Mutating the live history after queueing must not alter the queued data.
-        second_snapshot["events"][0]["uid"] = "mutated"
+        live_history = [{"uid": "new"}]
+        second_snapshot = {"version": 2, "events": [dict(item) for item in live_history]}
+        # Replace the queued task with the immutable snapshot, not the live list.
+        second.cancel()
+        second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
+        live_history[0]["uid"] = "mutated"
         store.release_first.set()
         await asyncio.gather(first, second)
 
-        assert store.calls == [1, 2]
-        assert second_snapshot["events"][0]["uid"] == "mutated"
+        assert [item["version"] for item in store.calls] == [1, 2]
+        assert store.calls[1]["events"][0]["uid"] == "new"
 
     asyncio.run(run_test())

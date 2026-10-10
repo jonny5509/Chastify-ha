@@ -113,7 +113,7 @@ class ChastifySensor(ChastifyBaseSensor):
                 remaining = _number(field(self.coordinator.data, "timeRemainingSeconds"))
                 if locked is not None and remaining is not None:
                     value = (datetime.now(timezone.utc) - timedelta(
-                        seconds=max(0, locked - remaining)
+                        seconds=max(0, locked)
                     )).isoformat()
         if value is None and self._data_key == "endDate":
             # API versions may omit endDate. Prefer explicit aliases, then

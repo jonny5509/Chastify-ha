@@ -56,7 +56,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         now = datetime.now(timezone.utc)
 
         if start is None and locked is not None and remaining is not None:
-            start = now - timedelta(seconds=max(0, locked - remaining))
+            start = now - timedelta(seconds=max(0, locked))
         if end is None and remaining is not None:
             end = now + timedelta(seconds=max(0, remaining))
 

@@ -1,4 +1,5 @@
 """Tests for the Chastify session calendar timing and history."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 from custom_components.chastify.calendar import _session_bounds, _session_uid
@@ -145,3 +146,41 @@ def test_calendar_ignores_lock_created_at_when_deriving_session_start() -> None:
     assert start == fetched_at - timedelta(seconds=600)
     assert end == fetched_at + timedelta(seconds=1800)
 
+
+
+def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
+    from custom_components.chastify.calendar import _save_history_snapshot
+
+    class BlockingStore:
+        def __init__(self) -> None:
+            self.calls = []
+            self.first_started = asyncio.Event()
+            self.release_first = asyncio.Event()
+
+        async def async_save(self, snapshot) -> None:
+            self.calls.append(snapshot["version"])
+            if snapshot["version"] == 1:
+                self.first_started.set()
+                await self.release_first.wait()
+
+    async def run_test() -> None:
+        store = BlockingStore()
+        first_snapshot = {"version": 1, "events": [{"uid": "old"}]}
+        first = asyncio.create_task(_save_history_snapshot(store, first_snapshot, None))
+        await store.first_started.wait()
+
+        # Later changes must not start saving until the earlier write completes.
+        second_snapshot = {"version": 2, "events": [{"uid": "new"}]}
+        second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
+        await asyncio.sleep(0)
+        assert store.calls == [1]
+
+        # Mutating the live history after queueing must not alter the queued data.
+        second_snapshot["events"][0]["uid"] = "mutated"
+        store.release_first.set()
+        await asyncio.gather(first, second)
+
+        assert store.calls == [1, 2]
+        assert second_snapshot["events"][0]["uid"] == "mutated"
+
+    asyncio.run(run_test())

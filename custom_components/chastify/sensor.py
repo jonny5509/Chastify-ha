@@ -28,7 +28,7 @@ async def async_setup_entry(
         "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
         "Start Date", "End Date", "Timer Visible", "Time Locked",
         "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining", "Last successful update", "Last API error",
+        "Task Points Required", "Task Points Remaining", "Last successful update", "Last API error", "Last action result",
     }
     for entity in list(registry.entities.values()):
         if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
@@ -51,6 +51,7 @@ async def async_setup_entry(
         ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
         ChastifyHealthSensor(coordinator, entry, "last_success", "Last successful update"),
         ChastifyHealthSensor(coordinator, entry, "last_error", "Last API error"),
+        ChastifyHealthSensor(coordinator, entry, "last_action_result", "Last action result"),
     ])
 
 
@@ -238,7 +239,7 @@ class ChastifyHealthSensor(ChastifyBaseSensor):
     def __init__(self, coordinator, entry, key, name):
         super().__init__(coordinator, entry, key, name)
         self._metric = key
-        self._attr_icon = "mdi:heart-pulse" if key == "last_success" else "mdi:alert-circle-outline"
+        self._attr_icon = "mdi:heart-pulse" if key == "last_success" else ("mdi:clipboard-check-outline" if key == "last_action_result" else "mdi:alert-circle-outline")
         if key == "last_success":
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
 
@@ -251,4 +252,6 @@ class ChastifyHealthSensor(ChastifyBaseSensor):
     def native_value(self):
         if self._metric == "last_success":
             return self.coordinator.last_success
+        if self._metric == "last_action_result":
+            return self.coordinator.last_action_result
         return self.coordinator.last_error or "No error"

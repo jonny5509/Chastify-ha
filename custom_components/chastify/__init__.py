@@ -17,9 +17,25 @@ from .const import *
 from .coordinator import ChastifyCoordinator
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _read_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+    return None
+
+
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.BUTTON]
-SERVICE_NAMES = (SERVICE_ACTION, SERVICE_APPLY_TIME, SERVICE_ADD_TIME, SERVICE_REMOVE_TIME, SERVICE_FREEZE, SERVICE_UNFREEZE, SERVICE_HYGIENIC_UNLOCK, SERVICE_LOG, SERVICE_DEVICE_COMMAND, SERVICE_NOTIFICATION)
+SERVICE_NAMES = (SERVICE_ACTION, SERVICE_APPLY_TIME, SERVICE_ADD_TIME, SERVICE_REMOVE_TIME, SERVICE_FREEZE, SERVICE_UNFREEZE, SERVICE_HYGIENIC_UNLOCK, SERVICE_LOG, SERVICE_DEVICE_COMMAND, SERVICE_NOTIFICATION, SERVICE_TOGGLE_FREEZE)
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -78,10 +94,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entity.device_id != device.id:
             er.async_update_entity(entity.entity_id, device_id=device.id)
 
-    async def call_api(func, *args):
+    async def call_api(func, *args, label: str | None = None):
+        action_label = label or func.__name__.replace("async_", "").replace("_", " ").capitalize()
         try:
-            return await func(*args)
+            result = await func(*args)
+            coordinator.last_action_result = f"{action_label}: succeeded"
+            coordinator.last_action_time = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            coordinator.async_update_listeners()
+            return result
         except (ChastifyApiError, ChastifyNoActiveSession) as err:
+            coordinator.last_action_result = f"{action_label}: failed — {err}"
+            coordinator.last_action_time = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            coordinator.async_update_listeners()
             raise HomeAssistantError(f"Chastify API error: {err}") from err
 
     async def action(call: ServiceCall):
@@ -104,8 +128,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await call_api(api.async_device_command, call.data[ATTR_COMMAND], call.data.get(ATTR_PARAMS))
     async def notification(call: ServiceCall):
         await call_api(api.async_custom_notification, call.data[ATTR_TITLE], call.data[ATTR_MESSAGE], call.data.get(ATTR_TARGET, "wearer"), call.data.get(ATTR_SHOW_PAGE_OVERLAY, False))
+    async def toggle_freeze(call: ServiceCall):
+        if not coordinator.data:
+            raise HomeAssistantError("Cannot toggle freeze without an active Chastify session.")
+        frozen = _read_bool(field(coordinator.data, "frozen"))
+        if frozen is None:
+            raise HomeAssistantError("Cannot determine whether the Chastify session is frozen; use freeze or unfreeze explicitly.")
+        if frozen:
+            await call_api(api.async_unfreeze, label="Toggle freeze (unfreeze)")
+        else:
+            await call_api(api.async_freeze, call.data.get(ATTR_DURATION_SECONDS), label="Toggle freeze (freeze)")
 
     schemas = {
+        SERVICE_TOGGLE_FREEZE: (toggle_freeze, vol.Schema({vol.Optional(ATTR_DURATION_SECONDS): vol.All(vol.Coerce(int), vol.Range(min=60, max=86400))})),
         SERVICE_ACTION: (action, vol.Schema({vol.Required(ATTR_NAME): str, vol.Optional(ATTR_PARAMS): object})),
         SERVICE_APPLY_TIME: (apply_time, vol.Schema({vol.Required(ATTR_SECONDS): vol.Coerce(int)})),
         SERVICE_ADD_TIME: (add_time, vol.Schema({vol.Required(ATTR_SECONDS): vol.All(vol.Coerce(int), vol.Range(min=1))})),

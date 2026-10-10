@@ -38,7 +38,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         15: lambda entity: entity.unique_id.endswith("_keyholder_last_seen"),
         16: lambda entity: entity.unique_id.endswith("_wearer_last_seen"),
         17: lambda entity: entity.unique_id.endswith("_trusted"),
-        19: lambda entity: entity.unique_id.endswith("_ready_to_unlock"),
     }
     for version, should_remove in migrations.items():
         if entry.version < version:
@@ -51,6 +50,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if entity.unique_id.endswith("_session_role"):
                 registry.async_update_entity(entity.entity_id, name="Session Role")
         hass.config_entries.async_update_entry(entry, version=18)
+    if entry.version < 19:
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if entity.unique_id.endswith("_ready_to_unlock"):
+                registry.async_remove(entity.entity_id)
+        hass.config_entries.async_update_entry(entry, version=19)
     return True
 
 

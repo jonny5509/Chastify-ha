@@ -223,28 +223,34 @@ def _session_bounds(
     return start, end
 
 
-def _first_datetime(data: dict[str, Any], keys: tuple[str, ...]) -> datetime | None:
-    """Find a timestamp in the session or common nested timing payloads."""
+def _nested_sources(data: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return the root and common nested API payloads in search order."""
     sources: list[dict[str, Any]] = []
-    root = data if isinstance(data, dict) else {}
-    sources.append(root)
-    lock_data = root.get("lockData")
-    if isinstance(lock_data, dict):
-        sources.append(lock_data)
-    for container in (root, lock_data if isinstance(lock_data, dict) else {}):
-        for name in ("data", "session", "lock", "result", "timer", "timing", "dates"):
-            nested = container.get(name)
+    seen: set[int] = set()
+
+    def visit(value: Any, depth: int = 0) -> None:
+        if not isinstance(value, dict) or id(value) in seen or depth > 5:
+            return
+        seen.add(id(value))
+        sources.append(value)
+        for name in ("lockData", "data", "session", "lock", "result", "timer", "timing", "dates"):
+            nested = value.get(name)
             if isinstance(nested, dict):
-                sources.append(nested)
-                for inner_name in ("timer", "timing", "dates"):
-                    inner = nested.get(inner_name)
-                    if isinstance(inner, dict):
-                        sources.append(inner)
-    for key in keys:
-        for source in sources:
+                visit(nested, depth + 1)
+
+    visit(data if isinstance(data, dict) else {})
+    return sources
+
+
+def _first_datetime(data: dict[str, Any], keys: tuple[str, ...]) -> datetime | None:
+    """Find a timestamp in root or nested Chastify/Chaster-style payloads."""
+    sources = _nested_sources(data)
+    for source in sources:
+        for key in keys:
             parsed = _parse_datetime(source.get(key))
             if parsed is not None:
                 return parsed
+    for key in keys:
         parsed = _parse_datetime(field(data, key))
         if parsed is not None:
             return parsed
@@ -252,27 +258,14 @@ def _first_datetime(data: dict[str, Any], keys: tuple[str, ...]) -> datetime | N
 
 
 def _first_number(data: dict[str, Any], keys: tuple[str, ...]) -> int | float | None:
-    """Find a non-negative numeric timer value in common session payloads."""
-    sources: list[dict[str, Any]] = []
-    root = data if isinstance(data, dict) else {}
-    sources.append(root)
-    lock_data = root.get("lockData")
-    if isinstance(lock_data, dict):
-        sources.append(lock_data)
-    for container in (root, lock_data if isinstance(lock_data, dict) else {}):
-        for name in ("data", "session", "lock", "result", "timer", "timing"):
-            nested = container.get(name)
-            if isinstance(nested, dict):
-                sources.append(nested)
-                for inner_name in ("timer", "timing"):
-                    inner = nested.get(inner_name)
-                    if isinstance(inner, dict):
-                        sources.append(inner)
-    for key in keys:
-        for source in sources:
+    """Find a non-negative timer value in root or nested API payloads."""
+    sources = _nested_sources(data)
+    for source in sources:
+        for key in keys:
             number = _number(source.get(key))
             if number is not None and number >= 0:
                 return number
+    for key in keys:
         number = _number(field(data, key))
         if number is not None and number >= 0:
             return number

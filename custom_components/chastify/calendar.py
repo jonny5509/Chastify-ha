@@ -51,7 +51,8 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
     async def async_added_to_hass(self) -> None:
         """Restore saved history before listening for coordinator updates."""
-        await super().async_added_to_hass()
+        # Load storage before CoordinatorEntity subscribes to updates. Otherwise
+        # a refresh during the storage await could save a partial history list.
         saved = await self._store.async_load()
         if isinstance(saved, dict) and isinstance(saved.get("events"), list):
             self._history = [
@@ -61,6 +62,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
                 and isinstance(item.get("end"), str)
                 and isinstance(item.get("uid"), str)
             ]
+        await super().async_added_to_hass()
         self._record_current_snapshot()
 
     @property

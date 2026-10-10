@@ -108,3 +108,21 @@ def test_session_history_uid_is_stable_for_same_session() -> None:
     assert first != _session_uid(
         "entry_session_calendar", start + timedelta(seconds=1), "Session"
     )
+
+
+def test_calendar_does_not_drift_match_when_start_is_explicit() -> None:
+    from custom_components.chastify.calendar import _matching_active_record
+
+    original_start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    record = {
+        "uid": "existing-session",
+        "summary": "Session",
+        "start": original_start.isoformat(),
+        "active": True,
+    }
+
+    # Explicit starts should be used as-is; even a small change can identify
+    # a distinct session, so the inferred-start fallback must not be applied.
+    assert _matching_active_record(
+        [record], original_start + timedelta(seconds=35), "Session"
+    ) is record

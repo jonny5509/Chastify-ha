@@ -243,6 +243,11 @@ class ChastifyHealthSensor(ChastifyBaseSensor):
             self._attr_device_class = SensorDeviceClass.TIMESTAMP
 
     @property
+    def available(self) -> bool:
+        # Diagnostics must remain visible while the main API coordinator is unhealthy.
+        return True
+
+    @property
     def native_value(self):
         if self._metric == "last_success":
             return self.coordinator.last_success

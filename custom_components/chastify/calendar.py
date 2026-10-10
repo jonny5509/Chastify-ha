@@ -220,6 +220,11 @@ def _session_bounds(
     # Prefer live remaining time when available, anchored to the last refresh.
     if remaining is not None:
         end = updated_at + timedelta(seconds=max(0, remaining))
+    # A successful /session response means Chastify still considers this lock
+    # active, even if its expected timer end has passed. Keep the event alive
+    # until the API confirms there is no active session (an empty snapshot).
+    if end is not None and end <= updated_at and data:
+        end = updated_at + timedelta(seconds=60)
     if start is None and locked is not None:
         start = updated_at - timedelta(seconds=max(0, locked))
     return start, end

@@ -71,6 +71,21 @@ freeze:
           step: 1
           mode: box
 
+toggle_freeze:
+  name: Toggle freeze
+  description: Toggle frozen state only when the current session state is known. Optional duration applies when freezing.
+  fields:
+    duration_seconds:
+      name: Duration
+      required: false
+      example: 1800
+      selector:
+        number:
+          min: 60
+          max: 86400
+          step: 1
+          mode: box
+
 unfreeze:
   name: Unfreeze
 

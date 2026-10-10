@@ -34,7 +34,6 @@ async def async_setup_entry(
     registry = er.async_get(hass)
     allowed = {
         "Refresh",
-        "Refresh history",
         "Hygienic unlock",
         "Add 1 day",
         "Add 1 hour",
@@ -53,7 +52,6 @@ async def async_setup_entry(
     async_add_entities(
         [
             RefreshButton(coordinator, entry, "refresh"),
-            RefreshHistoryButton(coordinator, entry),
             UnlockButton(coordinator, entry),
             AddOneDayButton(coordinator, entry),
             AddOneHourButton(coordinator, entry),
@@ -128,18 +126,6 @@ class UnfreezeButton(ChastifyButton):
 
     async def async_press(self) -> None:
         await _async_api_call(self.coordinator.api.async_unfreeze)
-        await self.coordinator.async_request_refresh()
-
-
-class RefreshHistoryButton(ChastifyButton):
-    _attr_name = "Refresh history"
-    _attr_icon = "mdi:history"
-
-    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_history"
-
-    async def async_press(self) -> None:
         await self.coordinator.async_request_refresh()
 
 

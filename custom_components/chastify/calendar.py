@@ -85,17 +85,29 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if start is None or end is None or end <= start:
             return None
 
-        title = field(data, "lockTitle") or field(data, "title") or "Chastify session"
+        title = str(field(data, "lockTitle") or field(data, "title") or "Chastify session")
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description = "Chastify session"
         if lock_type:
             description += f" — {lock_type}"
+
+        # Some API payloads expose only elapsed lock duration, so a newly
+        # calculated start can move by a few seconds between polls. Reuse the
+        # stored identity and original start for a matching active session.
+        prior = _matching_active_record(self._history, start, title)
+        uid = _session_uid(self.unique_id, start, title)
+        if prior is not None:
+            prior_start = _parse_datetime(prior.get("start"))
+            if prior_start is not None:
+                start = prior_start
+            uid = str(prior["uid"])
+
         return CalendarEvent(
-            summary=str(title),
+            summary=title,
             start=start,
             end=end,
             description=description,
-            uid=_session_uid(self.unique_id, start, str(title)),
+            uid=uid,
         )
 
     def _handle_coordinator_update(self) -> None:
@@ -197,6 +209,25 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 def _session_uid(unique_id: str, start: datetime, title: str) -> str:
     """Create a stable identifier for one session's history record."""
     return f"{unique_id}:{start.astimezone(timezone.utc).isoformat()}:{title}"
+
+
+def _matching_active_record(
+    history: list[dict[str, Any]], start: datetime, title: str
+) -> dict[str, Any] | None:
+    """Find the closest active history record when a derived start drifts slightly."""
+    candidates: list[tuple[float, dict[str, Any]]] = []
+    start_utc = start.astimezone(timezone.utc)
+    for item in history:
+        if not item.get("active") or item.get("summary") != title:
+            continue
+        prior_start = _parse_datetime(item.get("start"))
+        if prior_start is None:
+            continue
+        delta = abs((start_utc - prior_start.astimezone(timezone.utc)).total_seconds())
+        # Keep this narrow: avoid accidentally combining separate sessions.
+        if delta <= 90:
+            candidates.append((delta, item))
+    return min(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
 
 
 def _session_bounds(

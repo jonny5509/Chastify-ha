@@ -119,9 +119,21 @@ class ChastifyApi:
 
                 return data
         except TimeoutError as err:
-            raise ChastifyApiError(
-                f"Chastify API request timed out after {_REQUEST_TIMEOUT.total} seconds"
-            ) from err
+            if method.upper() != "GET":
+                # A write may have reached Chastify even when its response was
+                # lost. Retrying time changes or device commands can duplicate
+                # the effect, so make the uncertainty explicit to the caller.
+                message = (
+                    "Chastify API write timed out; the action outcome is unknown. "
+                    "Check the lock state/history or device delivery status before "
+                    "retrying."
+                )
+            else:
+                message = (
+                    f"Chastify API request timed out after "
+                    f"{_REQUEST_TIMEOUT.total} seconds"
+                )
+            raise ChastifyApiError(message) from err
         except aiohttp.ClientError as err:
             # Avoid leaking request details or credentials in low-level errors.
             raise ChastifyApiError(

@@ -28,7 +28,7 @@ async def async_setup_entry(
         "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
         "Start Date", "End Date", "Timer Visible", "Time Locked",
         "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining", "Last successful update", "Last API error", "Last action result",
+        "Task Points Required", "Task Points Remaining", "Last successful update", "Last API error", "Last action result", "Selected lock ID", "Maximum time remaining",
     }
     for entity in list(registry.entities.values()):
         if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
@@ -52,6 +52,8 @@ async def async_setup_entry(
         ChastifyHealthSensor(coordinator, entry, "last_success", "Last successful update"),
         ChastifyHealthSensor(coordinator, entry, "last_error", "Last API error"),
         ChastifyHealthSensor(coordinator, entry, "last_action_result", "Last action result"),
+        ChastifySelectedLockSensor(coordinator, entry),
+        ChastifyDurationSensor(coordinator, entry, "max_time_remaining", "Maximum time remaining", "maxTimeRemainingSeconds"),
     ])
 
 
@@ -80,10 +82,18 @@ class ChastifySensor(ChastifyBaseSensor):
     def __init__(self, coordinator, entry, key, name, data_key, device_id="my_lock", device_name="Session"):
         super().__init__(coordinator, entry, key, name, device_id, device_name)
         self._data_key = data_key
+        self._entry = entry
 
     @property
     def native_value(self) -> str | None:
         value = field(self.coordinator.data, self._data_key)
+        if self._data_key == "selectedLockId":
+            value = self._entry.data.get("lock_id") or value
+            if value is None:
+                for key in ("lockId", "selectedLockId", "currentLockId", "lock_id"):
+                    value = field(self.coordinator.data, key)
+                    if value is not None:
+                        break
         if value is None and self._data_key == "lockType":
             # Chastify documents lockData.lockType inconsistently across API
             # versions. Some session responses expose the connected lock as
@@ -173,6 +183,11 @@ class ChastifyDurationSensor(ChastifyBaseSensor):
     @property
     def native_value(self) -> str | None:
         value = _number(field(self.coordinator.data, self._data_key))
+        if self._data_key == "maxTimeRemainingSeconds" and value is None:
+            for key in ("maximumTimeRemainingSeconds", "maxRemainingTimeSeconds", "maximumRemainingTimeSeconds", "max_time_remaining_seconds"):
+                value = _number(field(self.coordinator.data, key))
+                if value is not None:
+                    break
         if value is None:
             return None
         total_seconds = max(0, int(value))
@@ -255,3 +270,23 @@ class ChastifyHealthSensor(ChastifyBaseSensor):
         if self._metric == "last_action_result":
             return self.coordinator.last_action_result
         return self.coordinator.last_error or "No error"
+
+
+class ChastifySelectedLockSensor(ChastifyBaseSensor):
+    """Expose the explicitly configured lock ID, or an ID supplied by the API."""
+
+    _attr_icon = "mdi:identifier"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "selected_lock_id", "Selected lock ID")
+        self._entry = entry
+
+    @property
+    def native_value(self) -> str | None:
+        value = self._entry.data.get("lock_id")
+        if not value:
+            for key in ("lockId", "selectedLockId", "currentLockId", "lock_id"):
+                value = field(self.coordinator.data, key)
+                if value:
+                    break
+        return str(value) if value else None

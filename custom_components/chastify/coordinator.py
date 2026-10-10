@@ -21,6 +21,8 @@ class ChastifyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.entry = entry
         self.last_success: datetime | None = None
         self.last_error: str | None = None
+        self.last_action_result: str = "No actions yet"
+        self.last_action_time: datetime | None = None
         super().__init__(
             hass, _LOGGER, name="Chastify", config_entry=entry,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),

@@ -3,21 +3,18 @@
     "step": {
       "user": {
         "title": "Chastify",
-        "description": "Enter your user-wide DEV API token.",
-        "data": {
-          "token": "DEV API token"
-        }
+        "description": "Enter your user-wide DEV API token. Optional: provide a specific 24-character lock ID.",
+        "data": {"token": "DEV API token", "lock_id": "Lock ID (optional)"}
       },
       "reauth_confirm": {
         "title": "Re-authenticate Chastify",
-        "description": "The Chastify DEV API token is no longer accepted. Enter a new token.",
-        "data": {
-          "token": "DEV API token"
-        }
+        "description": "The API token is no longer accepted. Enter a new token.",
+        "data": {"token": "DEV API token"}
       }
     },
     "error": {
       "invalid_auth": "The DEV API token was rejected.",
+      "invalid_lock_id": "Enter a valid 24-character lock ID, or leave blank.",
       "cannot_connect": "Unable to connect to Chastify."
     },
     "abort": {

@@ -2,7 +2,12 @@ import asyncio
 
 import pytest
 
-from custom_components.chastify.api import ChastifyApi, ChastifyApiError, _extract_lock_id
+from custom_components.chastify.api import (
+    ChastifyApi,
+    ChastifyApiError,
+    ChastifyNoActiveSession,
+    _extract_lock_id,
+)
 
 
 LOCK_ID = "0123456789abcdef01234567"
@@ -131,7 +136,7 @@ def test_stale_lock_selector_clears_and_next_session_can_be_selected() -> None:
         api = ChastifyApi("test-token", session=session)
 
         await api.async_get_session()
-        with pytest.raises(Exception, match="Session ended"):
+        with pytest.raises(ChastifyNoActiveSession, match="Session ended"):
             await api.async_get_session()
 
         # After the stale target is rejected, the next read discovers the

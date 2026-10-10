@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+import logging
 from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
@@ -17,6 +18,7 @@ from .coordinator import ChastifyCoordinator, field
 
 
 _STORAGE_VERSION = 1
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -25,7 +27,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([ChastifyCalendar(coordinator, entry)])
+    calendar = ChastifyCalendar(coordinator, entry)
+    hass.data[DOMAIN][entry.entry_id]["calendar"] = calendar
+    async_add_entities([calendar])
 
 
 class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
@@ -48,6 +52,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             coordinator.hass, _STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_calendar_history"
         )
         self._history: list[dict[str, Any]] = []
+        self._history_save_task: Any = None
 
     async def async_added_to_hass(self) -> None:
         """Restore saved history before listening for coordinator updates."""
@@ -64,6 +69,12 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             ]
         await super().async_added_to_hass()
         self._record_current_snapshot()
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Wait for queued history writes before this entity is unloaded."""
+        if self._history_save_task is not None:
+            await self._history_save_task
+        await super().async_will_remove_from_hass()
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -87,9 +98,13 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
         title = str(field(data, "lockTitle") or field(data, "title") or "Chastify session")
         lock_type = field(data, "lockType") or field(data, "deviceType")
-        description = "Chastify session"
+        description_lines = ["Chastify session"]
         if lock_type:
-            description += f" — {lock_type}"
+            description_lines.append(f"Lock type: {lock_type}")
+        role = field(data, "sessionRole") or field(data, "role")
+        if role:
+            description_lines.append(f"Session role: {role}")
+        description = "\\n".join(description_lines)
 
         # Some API payloads expose only elapsed lock duration, so a newly
         # calculated start can move by a few seconds between polls. Reuse the
@@ -124,6 +139,22 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         """Update persisted history whenever the API snapshot changes."""
         self._record_current_snapshot()
         super()._handle_coordinator_update()
+
+    async def async_clear_history(self) -> None:
+        """Remove completed history while preserving the currently active session."""
+        self._history = []
+        if self.event is not None:
+            self._record_current_snapshot()
+        else:
+            self._queue_history_save()
+
+    def _queue_history_save(self) -> None:
+        """Queue a stable history snapshot behind any earlier write."""
+        snapshot = {"events": [dict(item) for item in self._history]}
+        previous = self._history_save_task
+        self._history_save_task = self.hass.async_create_task(
+            _save_history_snapshot(self._store, snapshot, previous)
+        )
 
     def _record_current_snapshot(self) -> None:
         data = self.coordinator.data
@@ -168,7 +199,9 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
                 changed = True
 
         if changed:
-            self.hass.async_create_task(self._store.async_save({"events": self._history}))
+            # Store an immutable snapshot and serialize writes. Rapid coordinator
+            # updates must not let an older async_save finish after a newer one.
+            self._queue_history_save()
 
     async def async_get_events(
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
@@ -214,6 +247,20 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
                 )
             )
         return sorted(events, key=lambda item: _as_datetime(item.start) or datetime.min.replace(tzinfo=timezone.utc))
+
+
+
+async def _save_history_snapshot(store: Store, snapshot: dict[str, Any], previous: Any) -> None:
+    """Persist snapshots in order so slower writes cannot overwrite newer history."""
+    if previous is not None:
+        try:
+            await previous
+        except Exception:  # noqa: BLE001 - a failed save must not block future snapshots
+            _LOGGER.exception("A previous Chastify calendar history save failed")
+    try:
+        await store.async_save(snapshot)
+    except Exception:  # noqa: BLE001 - keep the entity alive and log storage failures
+        _LOGGER.exception("Unable to save Chastify calendar history")
 
 
 def _session_uid(unique_id: str, start: datetime, title: str) -> str:

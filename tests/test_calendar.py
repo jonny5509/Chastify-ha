@@ -1,7 +1,8 @@
 """Tests for the Chastify session calendar timing and history."""
+import asyncio
 from datetime import datetime, timedelta, timezone
 
-from custom_components.chastify.calendar import _session_bounds, _session_uid
+from custom_components.chastify.calendar import _parse_datetime, _session_bounds, _session_uid
 
 
 def test_calendar_end_tracks_latest_remaining_time_snapshot() -> None:
@@ -145,3 +146,100 @@ def test_calendar_ignores_lock_created_at_when_deriving_session_start() -> None:
     assert start == fetched_at - timedelta(seconds=600)
     assert end == fetched_at + timedelta(seconds=1800)
 
+
+
+def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
+    from custom_components.chastify.calendar import _save_history_snapshot
+
+    class BlockingStore:
+        def __init__(self) -> None:
+            self.calls = []
+            self.first_started = asyncio.Event()
+            self.release_first = asyncio.Event()
+
+        async def async_save(self, snapshot) -> None:
+            self.calls.append(snapshot)
+            if snapshot["version"] == 1:
+                self.first_started.set()
+                await self.release_first.wait()
+
+    async def run_test() -> None:
+        store = BlockingStore()
+        first_snapshot = {"version": 1, "events": [{"uid": "old"}]}
+        first = asyncio.create_task(_save_history_snapshot(store, first_snapshot, None))
+        await store.first_started.wait()
+
+        # Later changes must not start saving until the earlier write completes.
+        # The entity queues a shallow copy of each event dictionary, not its live list.
+        live_history = [{"uid": "new"}]
+        second_snapshot = {"version": 2, "events": [dict(item) for item in live_history]}
+        second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
+        await asyncio.sleep(0)
+        assert [item["version"] for item in store.calls] == [1]
+
+        # Mutating the live history after queueing must not alter the queued data.
+        live_history[0]["uid"] = "mutated"
+        store.release_first.set()
+        await asyncio.gather(first, second)
+
+        assert [item["version"] for item in store.calls] == [1, 2]
+        assert store.calls[1]["events"][0]["uid"] == "new"
+
+    asyncio.run(run_test())
+
+
+def test_calendar_normalizes_naive_and_millisecond_timestamps_to_utc() -> None:
+    naive = _parse_datetime("2026-10-10T12:00:00")
+    milliseconds = _parse_datetime(1791633600000)
+
+    assert naive == datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    assert milliseconds == datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+
+
+def test_calendar_rejects_invalid_or_reversed_event_bounds() -> None:
+    fetched_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    start, end = _session_bounds(
+        {"lockData": {"startDate": "2026-10-10T13:00:00Z", "endDate": "2026-10-10T12:30:00Z"}},
+        fetched_at,
+    )
+
+    assert start == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
+    assert end == datetime(2026, 10, 10, 12, 30, tzinfo=timezone.utc)
+    assert end <= start
+
+
+def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import custom_components.chastify.calendar as calendar_module
+
+    class FakeStore:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+    monkeypatch.setattr(calendar_module, "Store", FakeStore)
+    refreshed_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    coordinator = MagicMock()
+    coordinator.hass = hass
+    coordinator.data = {
+        "lockData": {
+            "startDate": "2026-10-10T11:00:00Z",
+            "timeRemainingSeconds": 1800,
+            "lockType": "Device lock",
+            "sessionRole": "wearer",
+        }
+    }
+    coordinator.last_update_success_time = refreshed_at
+    coordinator.async_add_listener.return_value = lambda: None
+
+    entity = calendar_module.ChastifyCalendar(
+        coordinator, SimpleNamespace(entry_id="calendar-test")
+    )
+
+    event = entity.event
+
+    assert event is not None
+    assert event.summary == "Chastify session"
+    assert "Lock type: Device lock" in event.description
+    assert "Session role: wearer" in event.description

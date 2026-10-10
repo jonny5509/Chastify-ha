@@ -35,6 +35,7 @@ async def async_setup_entry(
     allowed = {
         "Refresh",
         "Refresh history",
+        "Clear calendar history",
         "Hygienic unlock",
         "Add 1 day",
         "Add 1 hour",
@@ -52,6 +53,7 @@ async def async_setup_entry(
         [
             RefreshButton(coordinator, entry, "refresh"),
             RefreshHistoryButton(coordinator, entry),
+            ClearCalendarHistoryButton(coordinator, entry),
             UnlockButton(coordinator, entry),
             AddOneDayButton(coordinator, entry),
             AddOneHourButton(coordinator, entry),
@@ -224,3 +226,21 @@ class SubtractOneHourButton(ChastifyButton):
     async def async_press(self) -> None:
         await _async_api_call(self.coordinator.api.async_apply_time, -ADD_HOUR_SECONDS)
         await self.coordinator.async_request_refresh()
+
+
+class ClearCalendarHistoryButton(ChastifyButton):
+    """Clear completed local calendar history without touching the active session."""
+
+    _attr_name = "Clear calendar history"
+    _attr_icon = "mdi:calendar-remove"
+
+    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._entry_id = entry.entry_id
+        self._attr_unique_id = f"{entry.entry_id}_clear_calendar_history"
+
+    async def async_press(self) -> None:
+        calendar = self.hass.data.get(DOMAIN, {}).get(self._entry_id, {}).get("calendar")
+        if calendar is None:
+            raise HomeAssistantError("Chastify calendar is not available")
+        await calendar.async_clear_history()

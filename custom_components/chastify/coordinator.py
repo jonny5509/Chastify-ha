@@ -24,7 +24,7 @@ class ChastifyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(
             hass, _LOGGER, name="Chastify", config_entry=entry,
             update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
-            always_update=False,
+            always_update=True,
         )
 
     async def _async_update_data(self) -> dict[str, Any]:

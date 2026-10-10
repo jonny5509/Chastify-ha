@@ -70,18 +70,12 @@ class ChastifyNotifications:
             if start is None:
                 return
             start_iso = start.astimezone(timezone.utc).isoformat()
-            previous_start = _parse(active_start)
-            is_new_session = not active_start or (
+            if not active_start or (
                 explicit_start is not None
-                and (
-                    previous_start is None
-                    or abs((explicit_start - previous_start).total_seconds()) > 90
-                )
-            )
-            if is_new_session:
+                and abs((explicit_start - _parse(active_start)).total_seconds()) > 90
+            ):
                 self.state = {"active_start": start_iso, "last_daily_day": 0}
                 active_start = start_iso
-                await self._save()
             # If no explicit timestamp exists, retain the first observed inferred
             # start so the timer does not drift between coordinator polls.
             start = _parse(active_start) or start
@@ -97,6 +91,9 @@ class ChastifyNotifications:
                     blocking=True,
                 )
                 self.state["last_daily_day"] = elapsed_days
+                await self._save()
+            elif not self.state.get("active_start"):
+                self.state["active_start"] = start_iso
                 await self._save()
         elif data == {} and active_start:
             start = _parse(active_start)

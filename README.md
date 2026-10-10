@@ -63,7 +63,9 @@ You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, 
 
 ### 🎉 Session congratulations notifications
 
-Open **Settings → Devices & services → Chastify → Configure** to independently enable or disable daily congratulations (once every 24 hours from the session start) and a final notification when the session ends. Notifications appear in Home Assistant’s notification panel. Both switches are enabled by default.\n\n### 🔑 API key security
+Open **Settings → Devices & services → Chastify → Configure** to independently enable or disable daily congratulations (once every 24 hours from the session start) and a final notification when the session ends. Notifications appear in Home Assistant’s notification panel. Both switches are enabled by default.
+
+### 🔑 API key security
 
 Treat your API key like a password.
 

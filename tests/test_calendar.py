@@ -121,8 +121,10 @@ def test_calendar_does_not_drift_match_when_start_is_explicit() -> None:
         "active": True,
     }
 
-    # Explicit starts should be used as-is; even a small change can identify
-    # a distinct session, so the inferred-start fallback must not be applied.
+    # Explicit starts must not use the fallback that tolerates inferred drift.
     assert _matching_active_record(
-        [record], original_start + timedelta(seconds=35), "Session"
-    ) is record
+        [record],
+        original_start + timedelta(seconds=35),
+        "Session",
+        allow_start_drift=False,
+    ) is None

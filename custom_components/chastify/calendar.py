@@ -1,4 +1,4 @@
-"""Read-only Home Assistant calendar for the active Chastify session."""
+"""Persistent Home Assistant calendar history for Chastify sessions."""
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
@@ -9,10 +9,14 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import ChastifyCoordinator, field
+
+
+_STORAGE_VERSION = 1
 
 
 async def async_setup_entry(
@@ -25,7 +29,7 @@ async def async_setup_entry(
 
 
 class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
-    """Expose the current Chastify session as an automatically updated calendar event."""
+    """Expose active sessions and retain completed sessions in local HA storage."""
 
     _attr_has_entity_name = True
     _attr_name = "Session Calendar"
@@ -40,6 +44,24 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             manufacturer="Chastify",
             model="Chastify Lock",
         )
+        self._store: Store[dict[str, Any]] = Store(
+            coordinator.hass, _STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_calendar_history"
+        )
+        self._history: list[dict[str, Any]] = []
+
+    async def async_added_to_hass(self) -> None:
+        """Restore saved history before listening for coordinator updates."""
+        await super().async_added_to_hass()
+        saved = await self._store.async_load()
+        if isinstance(saved, dict) and isinstance(saved.get("events"), list):
+            self._history = [
+                item for item in saved["events"]
+                if isinstance(item, dict)
+                and isinstance(item.get("start"), str)
+                and isinstance(item.get("end"), str)
+                and isinstance(item.get("uid"), str)
+            ]
+        self._record_current_snapshot()
 
     @property
     def event(self) -> CalendarEvent | None:
@@ -48,9 +70,6 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if not data:
             return None
 
-        # Anchor relative timer values to the time this data was fetched. Using
-        # datetime.now() on every property access makes the event end drift
-        # forward between coordinator refreshes.
         now = datetime.now(timezone.utc)
         updated_at = getattr(self.coordinator, "last_update_success_time", None)
         if not isinstance(updated_at, datetime):
@@ -61,7 +80,6 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             updated_at = updated_at.astimezone(timezone.utc)
 
         start, end = _session_bounds(data, updated_at)
-
         if start is None or end is None or end <= start:
             return None
 
@@ -75,25 +93,108 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             start=start,
             end=end,
             description=description,
-            uid=f"{self.unique_id}:active-session",
+            uid=_session_uid(self.unique_id, start, str(title)),
         )
+
+    def _handle_coordinator_update(self) -> None:
+        """Update persisted history whenever the API snapshot changes."""
+        self._record_current_snapshot()
+        super()._handle_coordinator_update()
+
+    def _record_current_snapshot(self) -> None:
+        data = self.coordinator.data
+        event = self.event
+        changed = False
+        active_records = [item for item in self._history if item.get("active")]
+
+        if event is not None:
+            start = _as_datetime(event.start)
+            end = _as_datetime(event.end)
+            if start is None or end is None:
+                return
+            # If a new session replaces the previous one without an empty
+            # snapshot between them, close the previous event at observation time.
+            for item in active_records:
+                if item.get("uid") != event.uid:
+                    item["end"] = datetime.now(timezone.utc).isoformat()
+                    item["active"] = False
+                    changed = True
+            record = next((item for item in self._history if item.get("uid") == event.uid), None)
+            serialized = {
+                "uid": str(event.uid),
+                "summary": event.summary,
+                "description": event.description or "",
+                "start": start.isoformat(),
+                "end": end.isoformat(),
+                "active": True,
+            }
+            if record is None:
+                self._history.append(serialized)
+                changed = True
+            elif record != serialized:
+                record.update(serialized)
+                changed = True
+        elif data == {}:
+            # An empty snapshot means Chastify confirmed there is no active
+            # session. Preserve the event, with its observed completion time.
+            finished_at = datetime.now(timezone.utc).isoformat()
+            for item in active_records:
+                item["end"] = finished_at
+                item["active"] = False
+                changed = True
+
+        if changed:
+            self.hass.async_create_task(self._store.async_save({"events": self._history}))
 
     async def async_get_events(
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
     ) -> list[CalendarEvent]:
-        """Return the active session if it overlaps the requested calendar range."""
-        event = self.event
-        if event is None:
-            return []
-        event_start = _as_datetime(event.start)
-        event_end = _as_datetime(event.end)
+        """Return all saved sessions overlapping the requested date range."""
         range_start = _as_datetime(start_date)
         range_end = _as_datetime(end_date)
-        if event_start is None or event_end is None or range_start is None or range_end is None:
+        if range_start is None or range_end is None:
             return []
-        if event_end <= range_start or event_start >= range_end:
-            return []
-        return [event]
+
+        # Make sure the latest active snapshot is represented even before the
+        # coordinator's update listener has had a chance to persist it.
+        current = self.event
+        records = list(self._history)
+        if current is not None:
+            current_start = _as_datetime(current.start)
+            current_end = _as_datetime(current.end)
+            if current_start and current_end:
+                active = {
+                    "uid": str(current.uid),
+                    "summary": current.summary,
+                    "description": current.description or "",
+                    "start": current_start.isoformat(),
+                    "end": current_end.isoformat(),
+                    "active": True,
+                }
+                records = [item for item in records if item.get("uid") != active["uid"]]
+                records.append(active)
+
+        events: list[CalendarEvent] = []
+        for item in records:
+            start = _parse_datetime(item.get("start"))
+            end = _parse_datetime(item.get("end"))
+            if start is None or end is None or end <= range_start or start >= range_end:
+                continue
+            events.append(
+                CalendarEvent(
+                    summary=str(item.get("summary") or "Chastify session"),
+                    start=start,
+                    end=end,
+                    description=str(item.get("description") or ""),
+                    uid=str(item["uid"]),
+                )
+            )
+        return sorted(events, key=lambda item: _as_datetime(item.start) or datetime.min.replace(tzinfo=timezone.utc))
+
+
+def _session_uid(unique_id: str, start: datetime, title: str) -> str:
+    """Create a stable identifier for one session's history record."""
+    return f"{unique_id}:{start.astimezone(timezone.utc).isoformat()}:{title}"
 
 
 def _session_bounds(
@@ -106,14 +207,8 @@ def _session_bounds(
     end = _session_datetime(
         data, "endDate", ("end_date", "endsAt", "endTimestamp", "endDateTime")
     )
-
     locked = _number(field(data, "timeLockedSeconds"))
     remaining = _number(field(data, "timeRemainingSeconds"))
-
-    # Chastify's live remaining-time value is the best source for the end.
-    # It reflects extensions/removals and frozen timers after each refresh.
-    # Anchor it to the snapshot timestamp so repeated calendar reads don't
-    # keep pushing the end into the future.
     if remaining is not None:
         end = updated_at + timedelta(seconds=max(0, remaining))
     if start is None and locked is not None:

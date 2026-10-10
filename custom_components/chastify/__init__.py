@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from datetime import datetime, timezone
 import voluptuous as vol
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
@@ -14,7 +15,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import device_registry as dr, entity_registry as er
 from .api import ChastifyApi, ChastifyApiError, ChastifyAuthError, ChastifyNoActiveSession
 from .const import *
-from .coordinator import ChastifyCoordinator
+from .coordinator import ChastifyCoordinator, field
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -99,7 +100,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             result = await func(*args)
             coordinator.last_action_result = f"{action_label}: succeeded"
-            coordinator.last_action_time = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            coordinator.last_action_time = datetime.now(timezone.utc)
             coordinator.async_update_listeners()
             return result
         except (ChastifyApiError, ChastifyNoActiveSession) as err:

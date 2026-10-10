@@ -206,3 +206,40 @@ def test_calendar_rejects_invalid_or_reversed_event_bounds() -> None:
     assert start == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
     assert end == datetime(2026, 10, 10, 12, 30, tzinfo=timezone.utc)
     assert end <= start
+
+
+def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import custom_components.chastify.calendar as calendar_module
+
+    class FakeStore:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+    monkeypatch.setattr(calendar_module, "Store", FakeStore)
+    refreshed_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    coordinator = MagicMock()
+    coordinator.hass = hass
+    coordinator.data = {
+        "lockData": {
+            "startDate": "2026-10-10T11:00:00Z",
+            "timeRemainingSeconds": 1800,
+            "lockType": "Device lock",
+            "sessionRole": "wearer",
+        }
+    }
+    coordinator.last_update_success_time = refreshed_at
+    coordinator.async_add_listener.return_value = lambda: None
+
+    entity = calendar_module.ChastifyCalendar(
+        coordinator, SimpleNamespace(entry_id="calendar-test")
+    )
+
+    event = entity.event
+
+    assert event is not None
+    assert event.summary == "Chastify session"
+    assert "Lock type: Device lock" in event.description
+    assert "Session role: wearer" in event.description

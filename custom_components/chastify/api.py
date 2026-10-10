@@ -6,6 +6,10 @@ import aiohttp
 
 from .const import BASE_URL
 
+# Keep API calls from hanging Home Assistant setup, service calls, or refreshes.
+_REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
+_MAX_ERROR_BODY_LENGTH = 500
+
 
 class ChastifyApiError(Exception):
     """General Chastify API error."""
@@ -39,20 +43,28 @@ class ChastifyApi:
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
         if self._session is None:
-            self._session = aiohttp.ClientSession()
+            self._session = aiohttp.ClientSession(timeout=_REQUEST_TIMEOUT)
 
         headers = dict(kwargs.pop("headers", {}))
         headers["Authorization"] = f"Bearer {self._token}"
         headers.setdefault("Accept", "application/json")
+        # Also apply a bounded timeout when Home Assistant supplies the session.
+        kwargs.setdefault("timeout", _REQUEST_TIMEOUT)
 
         try:
             async with self._session.request(
                 method, f"{BASE_URL}{path}", headers=headers, **kwargs
             ) as response:
                 try:
-                    data = await response.json(content_type=None)
+                    payload = await response.json(content_type=None)
                 except (ValueError, aiohttp.ContentTypeError):
-                    data = {"message": await response.text()}
+                    body = await response.text()
+                    payload = {"message": body.strip()[:_MAX_ERROR_BODY_LENGTH]}
+
+                # The API may return a list, string, or empty body. Normalize it
+                # before reading error fields so malformed responses don't crash
+                # the integration with an AttributeError.
+                data = payload if isinstance(payload, dict) else {"data": payload}
 
                 if response.status in (401, 403):
                     error = data.get("error") or data.get("code")
@@ -65,17 +77,28 @@ class ChastifyApi:
                     error = data.get("error") or data.get("code")
                     message = data.get("message") or error or f"HTTP {response.status}"
                     if response.status == 409 and error == "no_active_lock_session":
-                        raise ChastifyNoActiveSession(message)
-                    raise ChastifyApiError(message)
+                        raise ChastifyNoActiveSession(str(message))
+                    if response.status == 429:
+                        message = f"Chastify API rate limit reached (HTTP 429): {message}"
+                    elif response.status >= 500:
+                        message = f"Chastify API server error (HTTP {response.status}): {message}"
+                    else:
+                        message = f"Chastify API request failed (HTTP {response.status}): {message}"
+                    raise ChastifyApiError(str(message))
 
-                return data if isinstance(data, dict) else {"data": data}
+                return data
+        except TimeoutError as err:
+            raise ChastifyApiError(
+                f"Chastify API request timed out after {_REQUEST_TIMEOUT.total} seconds"
+            ) from err
         except aiohttp.ClientError as err:
-            raise ChastifyApiError(str(err)) from err
+            # Avoid leaking request details or credentials in low-level errors.
+            raise ChastifyApiError(
+                f"Unable to connect to the Chastify API ({type(err).__name__})"
+            ) from err
 
     async def async_get_session(self) -> dict[str, Any]:
-        data = await self._request("GET", "/session")
-
-        return data
+        return await self._request("GET", "/session")
 
     async def async_action(self, name: str, params: Any = None) -> dict[str, Any]:
         body = {"name": name, "params": {} if params is None else params}

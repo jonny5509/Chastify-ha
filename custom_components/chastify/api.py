@@ -108,6 +108,11 @@ class ChastifyApi:
                     error = data.get("error") or data.get("code")
                     message = data.get("message") or error or f"HTTP {response.status}"
                     if response.status == 409 and error == "no_active_lock_session":
+                        # The pinned session has ended or is no longer available.
+                        # Clear the stale selector so the next read can discover
+                        # the current session. Writes remain blocked until that
+                        # read pins a new valid lock ID.
+                        self._lock_id = None
                         raise ChastifyNoActiveSession(str(message))
                     if response.status == 429:
                         message = f"Chastify API rate limit reached (HTTP 429): {message}"

@@ -61,7 +61,7 @@ If it is not yet listed in HACS, add this repository as a custom repository:
 
 Configuration is performed through the Home Assistant UI.
 
-You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication.
+You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication. If your account has multiple active locks, enter the exact 24-character lock ID to pin requests to one lock; leave it blank to use Chastify's automatic selection.
 
 ### 🔑 API key security
 
@@ -85,6 +85,8 @@ Treat your API key like a password.
 - Task Points
 - Task Points Required
 - Task Points Remaining
+- Last successful update
+- Last API error
 
 ### Binary sensors
 
@@ -96,10 +98,9 @@ Treat your API key like a password.
 ### Buttons
 
 - Refresh
-- Last successful update and last API error diagnostics
-- Unlock
-- Emergency unlock
-- Archive
+- Hygienic unlock
+- Add 1 day / Add 1 hour
+- Subtract 1 day / Subtract 1 hour
 - Freeze
 - Unfreeze
 

@@ -92,9 +92,9 @@ def _as_bool(value) -> bool | None:
         try:
             decoded = json.loads(value)
         except (TypeError, ValueError):
-            return False
-        return _as_bool(decoded) if decoded != value else False
-    return False
+            return None
+        return _as_bool(decoded) if decoded != value else None
+    return None
 
 
 def _find_value(value, keys: set[str]):

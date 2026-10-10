@@ -100,6 +100,8 @@ The integration provides a native Home Assistant **Session Calendar** entity. It
 - Refresh
 - Refresh history
 - Hygienic unlock
+- Add 1 day / Add 1 hour
+- Subtract 1 day / Subtract 1 hour
 - Freeze
 - Unfreeze
 

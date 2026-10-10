@@ -55,7 +55,8 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
     @property
     def is_on(self) -> bool | None:
         if not self.coordinator.data:
-            return False
+            # No active session is not evidence that the lock is unlocked.
+            return None
 
         if self._data_key == "unlockable":
             payload = lock_data(self.coordinator.data)
@@ -66,14 +67,18 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
                     {"unlockable", "readyToUnlock", "ready_to_unlock", "isUnlockable", "canUnlock"},
                 )
         elif self._data_key == "locked":
-            value = bool(self.coordinator.data)
+            # Only report the state when the API explicitly provides it.
+            # A non-empty session payload does not prove that the lock is locked.
+            value = field(self.coordinator.data, "locked")
         else:
             value = field(self.coordinator.data, self._data_key)
 
         return _as_bool(value)
 
 
-def _as_bool(value) -> bool:
+def _as_bool(value) -> bool | None:
+    if value is None:
+        return None
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
@@ -87,9 +92,9 @@ def _as_bool(value) -> bool:
         try:
             decoded = json.loads(value)
         except (TypeError, ValueError):
-            return False
-        return _as_bool(decoded) if decoded != value else False
-    return False
+            return None
+        return _as_bool(decoded) if decoded != value else None
+    return None
 
 
 def _find_value(value, keys: set[str]):

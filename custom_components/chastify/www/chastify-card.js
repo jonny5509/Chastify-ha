@@ -5,11 +5,28 @@ class ChastifyCard extends HTMLElement {
   _find(...names) {
     if (!this._hass?.states) return null;
     const wanted = names.map(n => n.toLowerCase().replaceAll(" ", "_"));
-    return Object.values(this._hass.states).find(e => {
+    // Explicit entity overrides let users disambiguate when other integrations
+    // expose similarly named entities.
+    for (const key of names) {
+      const configured = this._config?.entities?.[key] || this._config?.entities?.[key.toLowerCase().replaceAll(" ", "_")];
+      if (configured && this._hass.states[configured]) return this._hass.states[configured];
+    }
+    const all = Object.values(this._hass.states);
+    const matches = all.filter(e => {
       const id = e.entity_id.toLowerCase();
       const name = String(e.attributes?.friendly_name || "").toLowerCase().replaceAll(" ", "_");
-      return (id.includes("chastify") || name.includes("chastify")) && wanted.some(n => id.endsWith("_" + n) || name.endsWith(n));
-    }) || null;
+      return wanted.some(n => id.endsWith("_" + n) || name.endsWith(n));
+    });
+    // Prefer this integration's historical IDs and entities attached to the
+    // integration's "Session" device. Entity IDs do not necessarily contain
+    // the integration domain, so requiring "chastify" here hides valid entities.
+    const preferred = matches.find(e => {
+      const id = e.entity_id.toLowerCase();
+      const domain = id.split(".")[0];
+      return id.includes("chastify") || id.startsWith(domain + ".session_");
+    });
+    if (preferred) return preferred;
+    return matches.length === 1 ? matches[0] : null;
   }
   _value(e) { return !e || ["unknown", "unavailable"].includes(e.state) ? "—" : e.state; }
   _escape(value) { return String(value).replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch])); }

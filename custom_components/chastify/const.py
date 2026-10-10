@@ -14,6 +14,7 @@ SERVICE_HYGIENIC_UNLOCK = "hygienic_unlock"
 SERVICE_LOG = "log_custom"
 SERVICE_DEVICE_COMMAND = "device_command"
 SERVICE_NOTIFICATION = "notification"
+SERVICE_TOGGLE_FREEZE = "toggle_freeze"
 
 ATTR_NAME = "name"
 ATTR_PARAMS = "params"

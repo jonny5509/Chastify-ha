@@ -28,7 +28,7 @@ async def async_setup_entry(
         "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
         "Start Date", "End Date", "Timer Visible", "Time Locked",
         "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining",
+        "Task Points Required", "Task Points Remaining", "Last successful update", "Last API error",
     }
     for entity in list(registry.entities.values()):
         if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
@@ -49,6 +49,8 @@ async def async_setup_entry(
         ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds"),
         ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds"),
         ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
+        ChastifyHealthSensor(coordinator, entry, "last_success", "Last successful update"),
+        ChastifyHealthSensor(coordinator, entry, "last_error", "Last API error"),
     ])
 
 
@@ -228,3 +230,25 @@ def _task_points_remaining(data: dict[str, Any]) -> int | float | None:
     if points is None or required is None:
         return None
     return max(0, required - points)
+
+
+class ChastifyHealthSensor(ChastifyBaseSensor):
+    """Expose integration health for dashboards and troubleshooting."""
+
+    def __init__(self, coordinator, entry, key, name):
+        super().__init__(coordinator, entry, key, name)
+        self._metric = key
+        self._attr_icon = "mdi:heart-pulse" if key == "last_success" else "mdi:alert-circle-outline"
+        if key == "last_success":
+            self._attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    @property
+    def available(self) -> bool:
+        # Diagnostics must remain visible while the main API coordinator is unhealthy.
+        return True
+
+    @property
+    def native_value(self):
+        if self._metric == "last_success":
+            return self.coordinator.last_success
+        return self.coordinator.last_error or "No error"

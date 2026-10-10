@@ -14,13 +14,15 @@ Chastify brings session status, lock information, countdowns, supported lock act
 - 🔑 User-wide DEV API key authentication
 - 🔒 Session and lock sensors
 - ⏱️ Lock countdown information
-- 🎛️ Refresh and lock-control buttons
+- 🎛️ Refresh and supported lock-control buttons
 - ❄️ Freeze and unfreeze support
-- 🔓 Unlock, emergency unlock, and archive actions
+- 🩹 Hygienic unlock (where permitted by Chastify)
 - ➕➖ Time adjustment services
 - 📝 Custom lock logs
+- 🔔 Custom Chastify notifications
+- 🩺 API health sensors and session-change events
+- 🎯 Optional explicit lock ID for multi-lock accounts
 - 📱 Supported device commands
-- 🩹 Hygienic unlock support
 - 🖥️ Built-in Lovelace dashboard card
 - 📦 HACS-compatible installation
 
@@ -59,7 +61,7 @@ If it is not yet listed in HACS, add this repository as a custom repository:
 
 Configuration is performed through the Home Assistant UI.
 
-You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication.
+You will need a **Chastify user-wide DEV API key**. If the key becomes invalid, Home Assistant can request reauthentication. If your account has multiple active locks, enter the exact 24-character lock ID to pin requests to one lock; leave it blank to use Chastify's automatic selection.
 
 ### 🔑 API key security
 
@@ -83,6 +85,8 @@ Treat your API key like a password.
 - Task Points
 - Task Points Required
 - Task Points Remaining
+- Last successful update
+- Last API error
 
 ### Binary sensors
 
@@ -94,10 +98,9 @@ Treat your API key like a password.
 ### Buttons
 
 - Refresh
-- Refresh history
-- Unlock
-- Emergency unlock
-- Archive
+- Hygienic unlock
+- Add 1 day / Add 1 hour
+- Subtract 1 day / Subtract 1 hour
 - Freeze
 - Unfreeze
 
@@ -113,6 +116,7 @@ Treat your API key like a password.
 | `chastify.unfreeze` | Unfreeze the active lock |
 | `chastify.hygienic_unlock` | Request a hygienic unlock |
 | `chastify.log_custom` | Create a custom lock log |
+| `chastify.notification` | Request a custom notification for wearer, keyholder, or both |
 | `chastify.device_command` | Send a documented device command |
 
 Use only actions and commands supported by the Chastify API and your account.
@@ -123,13 +127,13 @@ A bundled Lovelace card is available at:
 
 `/chastify/chastify-card.js`
 
-The card provides a convenient Home Assistant dashboard interface for Chastify session and lock information.
+The card provides a responsive Home Assistant dashboard interface for Chastify session and lock information. The integration does not expose a historical-session endpoint, so it does not advertise a separate history-refresh button.
 
 ## 🌐 API
 
 The integration communicates with the Chastify user-wide DEV API.
 
-Supported functionality includes session information, lock actions, time adjustments, freeze/unfreeze, custom logs, device commands, and hygienic unlock.
+Supported functionality includes session information, lock actions, time adjustments, freeze/unfreeze, custom logs and notifications, device commands, and hygienic unlock. API reads retry limited 429 responses with backoff; mutation requests are not blindly retried. Custom notification acceptance does not guarantee delivery or that a recipient read it.
 
 Chastify remains responsible for authentication, permissions, validation, and server-side restrictions.
 
@@ -149,7 +153,7 @@ Check that the action or command is supported by the Chastify API and permitted 
 
 ### Session data is not updating
 
-Use the **Refresh** control and check the Home Assistant logs if the API is unreachable or returning errors.
+Use the **Refresh** control and check the **Last API error** and **Last successful update** sensors. The integration also emits `chastify_session_started`, `chastify_session_ended`, and `chastify_session_state_changed` Home Assistant events for automations.
 
 ## 👩‍💻 Development
 

@@ -1,14 +1,15 @@
 from __future__ import annotations
 
+import re
 import voluptuous as vol
 
 from homeassistant import config_entries
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
-from .const import CONF_TOKEN, DOMAIN
+from .const import CONF_LOCK_ID, CONF_TOKEN, DOMAIN
 
 
-async def _validate_token(token: str) -> None:
-    api = ChastifyApi(token)
+async def _validate_token(token: str, lock_id: str | None = None) -> None:
+    api = ChastifyApi(token, lock_id=lock_id)
     try:
         await api.async_get_session()
     except ChastifyNoActiveSession:
@@ -25,14 +26,16 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="already_configured")
 
         errors: dict[str, str] = {}
-
         if user_input is not None:
             token = user_input[CONF_TOKEN].strip()
-            if not token:
+            lock_id = user_input.get(CONF_LOCK_ID, "").strip()
+            if lock_id and not re.fullmatch(r"[0-9a-fA-F]{24}", lock_id):
+                errors["base"] = "invalid_lock_id"
+            elif not token:
                 errors["base"] = "invalid_auth"
             else:
                 try:
-                    await _validate_token(token)
+                    await _validate_token(token, lock_id or None)
                 except ChastifyAuthError:
                     errors["base"] = "invalid_auth"
                 except ChastifyApiError:
@@ -41,13 +44,16 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     await self.async_set_unique_id("chastify")
                     self._abort_if_unique_id_configured()
                     return self.async_create_entry(
-                        title="Chastify - jonny5509",
-                        data={CONF_TOKEN: token},
+                        title="Chastify",
+                        data={CONF_TOKEN: token, CONF_LOCK_ID: lock_id},
                     )
 
         return self.async_show_form(
             step_id="user",
-            data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
+            data_schema=vol.Schema({
+                vol.Required(CONF_TOKEN): str,
+                vol.Optional(CONF_LOCK_ID, default=""): str,
+            }),
             errors=errors,
         )
 
@@ -59,11 +65,10 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth_confirm(self, user_input=None):
         errors: dict[str, str] = {}
-
         if user_input is not None:
             token = user_input[CONF_TOKEN].strip()
             try:
-                await _validate_token(token)
+                await _validate_token(token, self._reauth_entry.data.get(CONF_LOCK_ID) or None)
             except ChastifyAuthError:
                 errors["base"] = "invalid_auth"
             except ChastifyApiError:

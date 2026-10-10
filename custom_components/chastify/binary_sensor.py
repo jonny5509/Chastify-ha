@@ -66,7 +66,11 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
                     {"unlockable", "readyToUnlock", "ready_to_unlock", "isUnlockable", "canUnlock"},
                 )
         elif self._data_key == "locked":
-            value = bool(self.coordinator.data)
+            value = field(self.coordinator.data, "locked")
+            if value is None:
+                value = _find_value(self.coordinator.data, {"locked", "isLocked", "is_locked", "lockActive", "lock_active"})
+            if value is None:
+                return None
         else:
             value = field(self.coordinator.data, self._data_key)
 

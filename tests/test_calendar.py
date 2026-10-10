@@ -61,6 +61,43 @@ def test_calendar_keeps_active_session_visible_after_timer_expiry() -> None:
     assert end == fetched_at + timedelta(seconds=60)
 
 
+def test_calendar_reuses_active_history_identity_when_derived_start_drifts() -> None:
+    from custom_components.chastify.calendar import _matching_active_record
+
+    original_start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    record = {
+        "uid": "existing-session",
+        "summary": "Session",
+        "start": original_start.isoformat(),
+        "active": True,
+    }
+
+    match = _matching_active_record(
+        [record], original_start + timedelta(seconds=35), "Session"
+    )
+
+    assert match is record
+
+
+def test_calendar_does_not_match_different_title_or_large_start_drift() -> None:
+    from custom_components.chastify.calendar import _matching_active_record
+
+    original_start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    record = {
+        "uid": "existing-session",
+        "summary": "Session",
+        "start": original_start.isoformat(),
+        "active": True,
+    }
+
+    assert _matching_active_record(
+        [record], original_start + timedelta(seconds=35), "Other"
+    ) is None
+    assert _matching_active_record(
+        [record], original_start + timedelta(seconds=120), "Session"
+    ) is None
+
+
 def test_session_history_uid_is_stable_for_same_session() -> None:
     start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 

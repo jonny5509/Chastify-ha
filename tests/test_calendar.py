@@ -2,7 +2,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 
-from custom_components.chastify.calendar import _session_bounds, _session_uid
+from custom_components.chastify.calendar import _parse_datetime, _session_bounds, _session_uid
 
 
 def test_calendar_end_tracks_latest_remaining_time_snapshot() -> None:
@@ -186,3 +186,23 @@ def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
         assert store.calls[1]["events"][0]["uid"] == "new"
 
     asyncio.run(run_test())
+
+
+def test_calendar_normalizes_naive_and_millisecond_timestamps_to_utc() -> None:
+    naive = _parse_datetime("2026-10-10T12:00:00")
+    milliseconds = _parse_datetime(1791633600000)
+
+    assert naive == datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    assert milliseconds == datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+
+
+def test_calendar_rejects_invalid_or_reversed_event_bounds() -> None:
+    fetched_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    start, end = _session_bounds(
+        {"lockData": {"startDate": "2026-10-10T13:00:00Z", "endDate": "2026-10-10T12:30:00Z"}},
+        fetched_at,
+    )
+
+    assert start == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
+    assert end == fetched_at + timedelta(seconds=60)
+    assert end <= start

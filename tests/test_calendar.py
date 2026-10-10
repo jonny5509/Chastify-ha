@@ -1,7 +1,7 @@
-"""Tests for the Chastify session calendar timing."""
+"""Tests for the Chastify session calendar timing and history."""
 from datetime import datetime, timedelta, timezone
 
-from custom_components.chastify.calendar import _session_bounds
+from custom_components.chastify.calendar import _session_bounds, _session_uid
 
 
 def test_calendar_end_tracks_latest_remaining_time_snapshot() -> None:
@@ -43,3 +43,15 @@ def test_calendar_falls_back_to_explicit_end_when_remaining_is_hidden() -> None:
 
     assert start is None
     assert end == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
+
+
+def test_session_history_uid_is_stable_for_same_session() -> None:
+    start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+
+    first = _session_uid("entry_session_calendar", start, "Session")
+    second = _session_uid("entry_session_calendar", start, "Session")
+
+    assert first == second
+    assert first != _session_uid(
+        "entry_session_calendar", start + timedelta(seconds=1), "Session"
+    )

@@ -73,7 +73,7 @@ Treat your API key like a password.
 
 ### Calendar
 
-The integration provides a native Home Assistant **Session Calendar** entity. It automatically exposes the current Chastify session as a calendar event, using the session title and start/end times when available, and derives missing times from the lock and remaining-time counters. The event updates with the integration's normal session refresh and disappears when there is no active session. This is a Home Assistant calendar entity; it does not create events in Google Calendar, Outlook, or another external calendar.
+The integration provides a native Home Assistant **Session Calendar** entity. It exposes the current Chastify session as a calendar event, updates its expected end time as the remaining-time counter changes, and saves completed sessions in Home Assistant storage so they remain in calendar history across restarts. History is collected from the time the feature is installed; older sessions can only be added if Chastify makes them available. This is a Home Assistant calendar entity; it does not create events in Google Calendar, Outlook, or another external calendar.
 
 ### Sensors
 

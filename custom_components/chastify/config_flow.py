@@ -56,11 +56,7 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    @staticmethod
-    def async_get_options_flow(config_entry):
-        return ChastifyOptionsFlow(config_entry)
-
-    async def async_step_reauth(self, entry_data):
+    @staticmethod\n    def async_get_options_flow(config_entry):\n        return ChastifyOptionsFlow(config_entry)\n\n    async def async_step_reauth(self, entry_data):
         self._reauth_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )

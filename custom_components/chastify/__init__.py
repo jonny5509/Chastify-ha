@@ -45,8 +45,7 @@ from .const import (
     SERVICE_REMOVE_TIME,
     SERVICE_UNFREEZE,
 )
-from .coordinator import ChastifyCoordinator
-from .notifications import ChastifyNotifications
+from .coordinator import ChastifyCoordinator\nfrom .notifications import ChastifyNotifications
 
 
 
@@ -225,19 +224,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    await hass.config_entries.async_reload(entry.entry_id)
-
-
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:\n    await hass.config_entries.async_reload(entry.entry_id)\n\n\nasync def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data[DOMAIN].get(entry.entry_id)
     if not data:
         return True
 
-    if data.get("notifications"):
-        await data["notifications"].async_stop()
-
-    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if data.get("notifications"):\n        await data["notifications"].async_stop()\n\n    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         for name in SERVICE_NAMES:
             if hass.services.has_service(DOMAIN, name):

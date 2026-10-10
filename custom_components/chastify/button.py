@@ -40,8 +40,6 @@ async def async_setup_entry(
         "Add 1 hour",
         "Subtract 1 day",
         "Subtract 1 hour",
-        "Emergency unlock",
-        "Archive",
         "Freeze",
         "Unfreeze",
     }
@@ -59,8 +57,6 @@ async def async_setup_entry(
             AddOneHourButton(coordinator, entry),
             SubtractOneDayButton(coordinator, entry),
             SubtractOneHourButton(coordinator, entry),
-            EmergencyUnlockButton(coordinator, entry),
-            ArchiveButton(coordinator, entry),
             FreezeButton(coordinator, entry),
             UnfreezeButton(coordinator, entry),
         ]
@@ -228,37 +224,3 @@ class SubtractOneHourButton(ChastifyButton):
     async def async_press(self) -> None:
         await _async_api_call(self.coordinator.api.async_apply_time, -ADD_HOUR_SECONDS)
         await self.coordinator.async_request_refresh()
-
-
-class EmergencyUnlockButton(ChastifyButton):
-    _attr_name = "Emergency unlock"
-    _attr_icon = "mdi:alert-octagon"
-    _attr_entity_registry_enabled_default = False
-
-    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_emergency_unlock"
-
-    @property
-    def available(self) -> bool:
-        return False
-
-    async def async_press(self) -> None:
-        return
-
-
-class ArchiveButton(ChastifyButton):
-    _attr_name = "Archive"
-    _attr_icon = "mdi:archive"
-    _attr_entity_registry_enabled_default = False
-
-    def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-        self._attr_unique_id = f"{entry.entry_id}_archive"
-
-    @property
-    def available(self) -> bool:
-        return False
-
-    async def async_press(self) -> None:
-        return

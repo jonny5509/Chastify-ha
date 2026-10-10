@@ -48,17 +48,19 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if not data:
             return None
 
-        start = _session_datetime(data, "startDate", ("start_date", "startedAt", "startTimestamp", "startDateTime"))
-        end = _session_datetime(data, "endDate", ("end_date", "endsAt", "endTimestamp", "endDateTime"))
-
-        locked = _number(field(data, "timeLockedSeconds"))
-        remaining = _number(field(data, "timeRemainingSeconds"))
+        # Anchor relative timer values to the time this data was fetched. Using
+        # datetime.now() on every property access makes the event end drift
+        # forward between coordinator refreshes.
         now = datetime.now(timezone.utc)
+        updated_at = getattr(self.coordinator, "last_update_success_time", None)
+        if not isinstance(updated_at, datetime):
+            updated_at = now
+        elif updated_at.tzinfo is None:
+            updated_at = updated_at.replace(tzinfo=timezone.utc)
+        else:
+            updated_at = updated_at.astimezone(timezone.utc)
 
-        if start is None and locked is not None and remaining is not None:
-            start = now - timedelta(seconds=max(0, locked))
-        if end is None and remaining is not None:
-            end = now + timedelta(seconds=max(0, remaining))
+        start, end = _session_bounds(data, updated_at)
 
         if start is None or end is None or end <= start:
             return None
@@ -92,6 +94,31 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if event_end <= range_start or event_start >= range_end:
             return []
         return [event]
+
+
+def _session_bounds(
+    data: dict[str, Any], updated_at: datetime
+) -> tuple[datetime | None, datetime | None]:
+    """Calculate stable event bounds from the latest Chastify session snapshot."""
+    start = _session_datetime(
+        data, "startDate", ("start_date", "startedAt", "startTimestamp", "startDateTime")
+    )
+    end = _session_datetime(
+        data, "endDate", ("end_date", "endsAt", "endTimestamp", "endDateTime")
+    )
+
+    locked = _number(field(data, "timeLockedSeconds"))
+    remaining = _number(field(data, "timeRemainingSeconds"))
+
+    # Chastify's live remaining-time value is the best source for the end.
+    # It reflects extensions/removals and frozen timers after each refresh.
+    # Anchor it to the snapshot timestamp so repeated calendar reads don't
+    # keep pushing the end into the future.
+    if remaining is not None:
+        end = updated_at + timedelta(seconds=max(0, remaining))
+    if start is None and locked is not None:
+        start = updated_at - timedelta(seconds=max(0, locked))
+    return start, end
 
 
 def _session_datetime(

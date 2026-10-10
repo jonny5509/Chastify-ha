@@ -81,3 +81,39 @@ def test_requests_pin_selected_lock_and_keep_it_across_refreshes() -> None:
         assert session.calls[2]["headers"]["x-chastify-lock-id"] == LOCK_ID
 
     asyncio.run(run())
+
+
+class TimeoutRequest:
+    async def __aenter__(self):
+        raise TimeoutError()
+
+    async def __aexit__(self, exc_type, exc, traceback):
+        return False
+
+
+class TimeoutSession:
+    def request(self, method, url, **kwargs):
+        return TimeoutRequest()
+
+
+def test_write_timeout_warns_that_outcome_is_unknown() -> None:
+    async def run() -> None:
+        api = ChastifyApi("test-token", session=TimeoutSession())
+        api._lock_id = LOCK_ID
+
+        with pytest.raises(ChastifyApiError, match="outcome is unknown") as exc:
+            await api.async_apply_time(60)
+
+        assert "before retrying" in str(exc.value)
+
+    asyncio.run(run())
+
+
+def test_read_timeout_keeps_standard_timeout_message() -> None:
+    async def run() -> None:
+        api = ChastifyApi("test-token", session=TimeoutSession())
+
+        with pytest.raises(ChastifyApiError, match="request timed out after"):
+            await api.async_get_session()
+
+    asyncio.run(run())

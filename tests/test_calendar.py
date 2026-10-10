@@ -128,3 +128,20 @@ def test_calendar_does_not_drift_match_when_start_is_explicit() -> None:
         "Session",
         allow_start_drift=False,
     ) is None
+
+
+def test_calendar_ignores_lock_created_at_when_deriving_session_start() -> None:
+    fetched_at = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    data = {
+        "lock": {"createdAt": "2024-01-01T00:00:00Z"},
+        "lockData": {
+            "timeLockedSeconds": 600,
+            "timeRemainingSeconds": 1800,
+        },
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == fetched_at - timedelta(seconds=600)
+    assert end == fetched_at + timedelta(seconds=1800)
+

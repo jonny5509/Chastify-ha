@@ -1,5 +1,6 @@
 DOMAIN = "chastify"
 CONF_TOKEN = "token"
+CONF_LOCK_ID = "lock_id"
 BASE_URL = "https://chastify.net/api/apps/v1"
 DEFAULT_SCAN_INTERVAL = 30
 
@@ -12,12 +13,16 @@ SERVICE_UNFREEZE = "unfreeze"
 SERVICE_HYGIENIC_UNLOCK = "hygienic_unlock"
 SERVICE_LOG = "log_custom"
 SERVICE_DEVICE_COMMAND = "device_command"
+SERVICE_NOTIFICATION = "notification"
 
 ATTR_NAME = "name"
 ATTR_PARAMS = "params"
 ATTR_SECONDS = "seconds"
 ATTR_DURATION_SECONDS = "duration_seconds"
 ATTR_TITLE = "title"
+ATTR_MESSAGE = "message"
+ATTR_TARGET = "target"
+ATTR_SHOW_PAGE_OVERLAY = "show_page_overlay"
 ATTR_DESCRIPTION = "description"
 ATTR_ROLE = "role"
 ATTR_ICON = "icon"

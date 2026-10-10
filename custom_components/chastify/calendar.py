@@ -98,9 +98,13 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
         title = str(field(data, "lockTitle") or field(data, "title") or "Chastify session")
         lock_type = field(data, "lockType") or field(data, "deviceType")
-        description = "Chastify session"
+        description_lines = ["Chastify session"]
         if lock_type:
-            description += f" — {lock_type}"
+            description_lines.append(f"Lock type: {lock_type}")
+        role = field(data, "sessionRole") or field(data, "role")
+        if role:
+            description_lines.append(f"Session role: {role}")
+        description = "\\n".join(description_lines)
 
         # Some API payloads expose only elapsed lock duration, so a newly
         # calculated start can move by a few seconds between polls. Reuse the

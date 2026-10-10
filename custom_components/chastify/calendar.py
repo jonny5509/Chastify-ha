@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+import logging
 from typing import Any
 
 from homeassistant.components.calendar import CalendarEntity, CalendarEvent
@@ -17,6 +18,7 @@ from .coordinator import ChastifyCoordinator, field
 
 
 _STORAGE_VERSION = 1
+_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -48,6 +50,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             coordinator.hass, _STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_calendar_history"
         )
         self._history: list[dict[str, Any]] = []
+        self._history_save_task: Any = None
 
     async def async_added_to_hass(self) -> None:
         """Restore saved history before listening for coordinator updates."""
@@ -168,7 +171,13 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
                 changed = True
 
         if changed:
-            self.hass.async_create_task(self._store.async_save({"events": self._history}))
+            # Store an immutable snapshot and serialize writes. Rapid coordinator
+            # updates must not let an older async_save finish after a newer one.
+            snapshot = {"events": [dict(item) for item in self._history]}
+            previous = self._history_save_task
+            self._history_save_task = self.hass.async_create_task(
+                _save_history_snapshot(self._store, snapshot, previous)
+            )
 
     async def async_get_events(
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime
@@ -214,6 +223,20 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
                 )
             )
         return sorted(events, key=lambda item: _as_datetime(item.start) or datetime.min.replace(tzinfo=timezone.utc))
+
+
+
+async def _save_history_snapshot(store: Store, snapshot: dict[str, Any], previous: Any) -> None:
+    """Persist snapshots in order so slower writes cannot overwrite newer history."""
+    if previous is not None:
+        try:
+            await previous
+        except Exception:  # noqa: BLE001 - a failed save must not block future snapshots
+            _LOGGER.exception("A previous Chastify calendar history save failed")
+    try:
+        await store.async_save(snapshot)
+    except Exception:  # noqa: BLE001 - keep the entity alive and log storage failures
+        _LOGGER.exception("Unable to save Chastify calendar history")
 
 
 def _session_uid(unique_id: str, start: datetime, title: str) -> str:

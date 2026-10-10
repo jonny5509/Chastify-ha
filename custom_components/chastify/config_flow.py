@@ -58,7 +58,7 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry):
-        return ChastifyOptionsFlow(config_entry)
+        return ChastifyOptionsFlow()
 
     async def async_step_reauth(self, entry_data):
         self._reauth_entry = self.hass.config_entries.async_get_entry(
@@ -94,9 +94,6 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class ChastifyOptionsFlow(config_entries.OptionsFlow):
     """Configure Chastify session congratulations."""
-
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:

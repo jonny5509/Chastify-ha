@@ -27,7 +27,9 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([ChastifyCalendar(coordinator, entry)])
+    calendar = ChastifyCalendar(coordinator, entry)
+    hass.data[DOMAIN][entry.entry_id]["calendar"] = calendar
+    async_add_entities([calendar])
 
 
 class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
@@ -134,6 +136,22 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         self._record_current_snapshot()
         super()._handle_coordinator_update()
 
+    async def async_clear_history(self) -> None:
+        """Remove completed history while preserving the currently active session."""
+        self._history = []
+        if self.event is not None:
+            self._record_current_snapshot()
+        else:
+            self._queue_history_save()
+
+    def _queue_history_save(self) -> None:
+        """Queue a stable history snapshot behind any earlier write."""
+        snapshot = {"events": [dict(item) for item in self._history]}
+        previous = self._history_save_task
+        self._history_save_task = self.hass.async_create_task(
+            _save_history_snapshot(self._store, snapshot, previous)
+        )
+
     def _record_current_snapshot(self) -> None:
         data = self.coordinator.data
         event = self.event
@@ -179,11 +197,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if changed:
             # Store an immutable snapshot and serialize writes. Rapid coordinator
             # updates must not let an older async_save finish after a newer one.
-            snapshot = {"events": [dict(item) for item in self._history]}
-            previous = self._history_save_task
-            self._history_save_task = self.hass.async_create_task(
-                _save_history_snapshot(self._store, snapshot, previous)
-            )
+            self._queue_history_save()
 
     async def async_get_events(
         self, hass: HomeAssistant, start_date: datetime, end_date: datetime

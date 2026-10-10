@@ -105,7 +105,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return result
         except (ChastifyApiError, ChastifyNoActiveSession) as err:
             coordinator.last_action_result = f"{action_label}: failed — {err}"
-            coordinator.last_action_time = __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+            coordinator.last_action_time = datetime.now(timezone.utc)
             coordinator.async_update_listeners()
             raise HomeAssistantError(f"Chastify API error: {err}") from err
 

@@ -200,15 +200,22 @@ def _session_uid(unique_id: str, start: datetime, title: str) -> str:
 def _session_bounds(
     data: dict[str, Any], updated_at: datetime
 ) -> tuple[datetime | None, datetime | None]:
-    """Calculate stable event bounds from the latest Chastify session snapshot."""
-    start = _session_datetime(
-        data, "startDate", ("start_date", "startedAt", "startTimestamp", "startDateTime")
+    """Calculate event bounds while accepting the same timestamp inputs as Chaster."""
+    start = _first_datetime(
+        data, ("startDate", "startAt", "startedAt", "createdAt",
+               "start_date", "startTimestamp", "startDateTime")
     )
-    end = _session_datetime(
-        data, "endDate", ("end_date", "endsAt", "endTimestamp", "endDateTime")
+    end = _first_datetime(
+        data, ("endDate", "endAt", "unlockDate", "unlockAt", "maxLimitDate",
+               "end_date", "endsAt", "endTimestamp", "endDateTime")
     )
-    locked = _number(field(data, "timeLockedSeconds"))
-    remaining = _number(field(data, "timeRemainingSeconds"))
+    locked = _first_number(
+        data, ("timeLockedSeconds", "lockedSeconds", "durationSeconds")
+    )
+    remaining = _first_number(
+        data, ("timeRemainingSeconds", "remainingSeconds", "remainingTimeSeconds")
+    )
+    # Prefer live remaining time when available, anchored to the last refresh.
     if remaining is not None:
         end = updated_at + timedelta(seconds=max(0, remaining))
     if start is None and locked is not None:
@@ -216,16 +223,60 @@ def _session_bounds(
     return start, end
 
 
-def _session_datetime(
-    data: dict[str, Any], primary: str, aliases: tuple[str, ...]
-) -> datetime | None:
-    value = field(data, primary)
-    if value is None:
-        for alias in aliases:
-            value = field(data, alias)
-            if value is not None:
-                break
-    return _parse_datetime(value)
+def _first_datetime(data: dict[str, Any], keys: tuple[str, ...]) -> datetime | None:
+    """Find a timestamp in the session or common nested timing payloads."""
+    sources: list[dict[str, Any]] = []
+    root = data if isinstance(data, dict) else {}
+    sources.append(root)
+    lock_data = root.get("lockData")
+    if isinstance(lock_data, dict):
+        sources.append(lock_data)
+    for container in (root, lock_data if isinstance(lock_data, dict) else {}):
+        for name in ("data", "session", "lock", "result", "timer", "timing", "dates"):
+            nested = container.get(name)
+            if isinstance(nested, dict):
+                sources.append(nested)
+                for inner_name in ("timer", "timing", "dates"):
+                    inner = nested.get(inner_name)
+                    if isinstance(inner, dict):
+                        sources.append(inner)
+    for key in keys:
+        for source in sources:
+            parsed = _parse_datetime(source.get(key))
+            if parsed is not None:
+                return parsed
+        parsed = _parse_datetime(field(data, key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def _first_number(data: dict[str, Any], keys: tuple[str, ...]) -> int | float | None:
+    """Find a non-negative numeric timer value in common session payloads."""
+    sources: list[dict[str, Any]] = []
+    root = data if isinstance(data, dict) else {}
+    sources.append(root)
+    lock_data = root.get("lockData")
+    if isinstance(lock_data, dict):
+        sources.append(lock_data)
+    for container in (root, lock_data if isinstance(lock_data, dict) else {}):
+        for name in ("data", "session", "lock", "result", "timer", "timing"):
+            nested = container.get(name)
+            if isinstance(nested, dict):
+                sources.append(nested)
+                for inner_name in ("timer", "timing"):
+                    inner = nested.get(inner_name)
+                    if isinstance(inner, dict):
+                        sources.append(inner)
+    for key in keys:
+        for source in sources:
+            number = _number(source.get(key))
+            if number is not None and number >= 0:
+                return number
+        number = _number(field(data, key))
+        if number is not None and number >= 0:
+            return number
+    return None
 
 
 def _parse_datetime(value: Any) -> datetime | None:

@@ -13,6 +13,7 @@ Chastify brings session status, lock information, countdowns, supported lock act
 - 🧩 Home Assistant Config Flow setup
 - 🔑 User-wide DEV API key authentication
 - 🔒 Session and lock sensors
+- 📅 Automatic read-only calendar entity for the active Chastify session
 - ⏱️ Lock countdown information
 - 🎛️ Refresh and lock-control buttons
 - ❄️ Freeze and unfreeze support
@@ -70,6 +71,10 @@ Treat your API key like a password.
 - Rotate the key if you believe it has been exposed.
 
 ## 📊 Entities
+
+### Calendar
+
+The integration provides a native Home Assistant **Session Calendar** entity. It automatically exposes the current Chastify session as a calendar event, using the session title and start/end times when available, and derives missing times from the lock and remaining-time counters. The event updates with the integration's normal session refresh and disappears when there is no active session. This is a Home Assistant calendar entity; it does not create events in Google Calendar, Outlook, or another external calendar.
 
 ### Sensors
 

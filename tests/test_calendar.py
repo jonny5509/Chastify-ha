@@ -170,17 +170,14 @@ def test_calendar_history_saves_are_serialized_and_use_snapshots() -> None:
         await store.first_started.wait()
 
         # Later changes must not start saving until the earlier write completes.
-        second_snapshot = {"version": 2, "events": [{"uid": "new"}]}
+        # The entity queues a shallow copy of each event dictionary, not its live list.
+        live_history = [{"uid": "new"}]
+        second_snapshot = {"version": 2, "events": [dict(item) for item in live_history]}
         second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
         await asyncio.sleep(0)
         assert [item["version"] for item in store.calls] == [1]
 
         # Mutating the live history after queueing must not alter the queued data.
-        live_history = [{"uid": "new"}]
-        second_snapshot = {"version": 2, "events": [dict(item) for item in live_history]}
-        # Replace the queued task with the immutable snapshot, not the live list.
-        second.cancel()
-        second = asyncio.create_task(_save_history_snapshot(store, second_snapshot, first))
         live_history[0]["uid"] = "mutated"
         store.release_first.set()
         await asyncio.gather(first, second)

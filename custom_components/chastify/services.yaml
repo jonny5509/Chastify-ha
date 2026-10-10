@@ -117,3 +117,36 @@ device_command:
       name: Parameters
       selector:
         object:
+
+notification:
+  name: Custom notification
+  description: Request a Chastify notification. Accepted requests do not confirm delivery or that a recipient read it.
+  fields:
+    title:
+      name: Title
+      required: true
+      example: Session update
+      selector:
+        text:
+    message:
+      name: Message
+      required: true
+      example: Your session status has changed.
+      selector:
+        text:
+    target:
+      name: Recipient
+      required: true
+      default: wearer
+      selector:
+        select:
+          options:
+            - wearer
+            - keyholder
+            - both
+    show_page_overlay:
+      name: Show page overlay
+      required: false
+      default: false
+      selector:
+        boolean:

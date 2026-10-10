@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import aiohttp
@@ -9,6 +10,7 @@ from .const import BASE_URL
 # Keep API calls from hanging Home Assistant setup, service calls, or refreshes.
 _REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=5, sock_read=10)
 _MAX_ERROR_BODY_LENGTH = 500
+_LOCK_ID_PATTERN = re.compile(r"^[0-9a-fA-F]{24}$")
 
 
 class ChastifyApiError(Exception):
@@ -33,6 +35,23 @@ def normalize_token(token: str) -> str:
     return value
 
 
+def _extract_lock_id(payload: dict[str, Any]) -> str | None:
+    """Extract the selected lock ID from the documented session response."""
+    sources = [payload]
+    for key in ("data", "session", "result"):
+        value = payload.get(key)
+        if isinstance(value, dict):
+            sources.append(value)
+
+    for source in sources:
+        lock = source.get("lock")
+        if isinstance(lock, dict):
+            lock_id = lock.get("_id")
+            if isinstance(lock_id, str) and _LOCK_ID_PATTERN.fullmatch(lock_id):
+                return lock_id
+    return None
+
+
 class ChastifyApi:
     def __init__(
         self, token: str, session: aiohttp.ClientSession | None = None
@@ -40,14 +59,26 @@ class ChastifyApi:
         self._token = normalize_token(token)
         self._session = session
         self._owns_session = session is None
+        self._lock_id: str | None = None
 
     async def _request(self, method: str, path: str, **kwargs: Any) -> dict[str, Any]:
+        # The API can automatically select a different active lock over time.
+        # Never send a state-changing request until a valid lock ID has been
+        # discovered from /session and pinned for this API instance.
+        if method.upper() != "GET" and self._lock_id is None:
+            raise ChastifyApiError(
+                "Cannot safely send a Chastify lock action before /session "
+                "returns a valid lock ID"
+            )
+
         if self._session is None:
             self._session = aiohttp.ClientSession(timeout=_REQUEST_TIMEOUT)
 
         headers = dict(kwargs.pop("headers", {}))
         headers["Authorization"] = f"Bearer {self._token}"
         headers.setdefault("Accept", "application/json")
+        if self._lock_id is not None:
+            headers["x-chastify-lock-id"] = self._lock_id
         # Also apply a bounded timeout when Home Assistant supplies the session.
         kwargs.setdefault("timeout", _REQUEST_TIMEOUT)
 
@@ -98,7 +129,12 @@ class ChastifyApi:
             ) from err
 
     async def async_get_session(self) -> dict[str, Any]:
-        return await self._request("GET", "/session")
+        data = await self._request("GET", "/session")
+        # Pin the first valid target for the lifetime of this config entry.
+        # Subsequent session refreshes and all writes then use the same lock.
+        if self._lock_id is None:
+            self._lock_id = _extract_lock_id(data)
+        return data
 
     async def async_action(self, name: str, params: Any = None) -> dict[str, Any]:
         body = {"name": name, "params": {} if params is None else params}
@@ -116,8 +152,7 @@ class ChastifyApi:
         return await self._request("POST", "/lock/freeze", json=params)
 
     async def async_unfreeze(self) -> dict[str, Any]:
-        # Chastify expects a JSON request body for this POST, even though
-        # unfreeze does not require any parameters.
+        # Chastify accepts an empty JSON request body for unfreeze.
         return await self._request("POST", "/lock/unfreeze", json={})
 
     async def async_hygienic_unlock(self) -> dict[str, Any]:

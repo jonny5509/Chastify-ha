@@ -7,7 +7,13 @@ from homeassistant.core import HomeAssistant
 
 from .const import CONF_TOKEN, DOMAIN
 
-_SENSITIVE_KEYS = {"token", "apikey", "api_key", "password", "authorization", "secret"}
+_SENSITIVE_KEY_MARKERS = ("token", "apikey", "password", "authorization", "secret", "credential", "bearer")
+
+
+def _is_sensitive_key(key: Any) -> bool:
+    """Return whether a field name looks like it may contain a credential."""
+    normalized = "".join(character for character in str(key).lower() if character.isalnum())
+    return any(marker in normalized for marker in _SENSITIVE_KEY_MARKERS)
 
 
 def _sanitize(value: Any) -> Any:
@@ -15,7 +21,7 @@ def _sanitize(value: Any) -> Any:
         return {
             key: _sanitize(item)
             for key, item in value.items()
-            if str(key).lower() not in _SENSITIVE_KEYS
+            if not _is_sensitive_key(key)
         }
     if isinstance(value, list):
         return [_sanitize(item) for item in value]

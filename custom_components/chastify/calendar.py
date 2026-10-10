@@ -68,6 +68,12 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         await super().async_added_to_hass()
         self._record_current_snapshot()
 
+    async def async_will_remove_from_hass(self) -> None:
+        """Wait for queued history writes before this entity is unloaded."""
+        if self._history_save_task is not None:
+            await self._history_save_task
+        await super().async_will_remove_from_hass()
+
     @property
     def event(self) -> CalendarEvent | None:
         """Return the current session event, if a valid session is active."""

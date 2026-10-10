@@ -1,21 +1,32 @@
 class ChastifyCard extends HTMLElement {
-  setConfig(config){this._config=config||{};this._render();}
-  set hass(hass){this._hass=hass;this._render();}
-  getCardSize(){return 6;}
-  _find(...names){if(!this._hass?.states)return null;const wanted=names.map(n=>n.toLowerCase().replaceAll(" ","_"));return Object.values(this._hass.states).find(e=>{const id=e.entity_id.toLowerCase(),name=String(e.attributes?.friendly_name||"").toLowerCase().replaceAll(" ","_");if(!id.includes("chastify")&&!name.includes("chastify"))return false;return wanted.some(n=>id.endsWith("_"+n)||name.endsWith(n));})||null;}
-  _value(e){return !e||["unknown","unavailable"].includes(e.state)?"—":e.state;}
-  _press(e){if(e)this._hass.callService("button","press",{entity_id:e.entity_id});}
-  _render(){if(!this._hass)return;const vals=[["⏱","Time locked",this._find("my_lock_time_locked","time_locked")],["⌛","Time remaining",this._find("my_lock_time_remaining","time_remaining")],["⏱","Maximum remaining",this._find("my_lock_max_time_remaining","maximum_time_remaining")],["⭐","Task points",this._find("my_lock_task_points","task_points")]];const btns=["refresh","refresh_history","unlock","emergency_unlock"].map(n=>this._find(n)).filter(e=>e?.entity_id?.startsWith("button."));this.innerHTML='<ha-card><div class="card"><div class="rows">'+vals.map(v=>'<div class="row"><span>'+v[0]+'</span><div><b>'+v[1]+'</b><strong>'+this._value(v[2])+'</strong></div></div>').join("")+'</div><div class="actions">'+btns.map((e,i)=>'<button data-i="'+i+'">'+(e.attributes.friendly_name||"Action")+'</button>').join("")+'</div></div></ha-card><style>:host{display:block}ha-card{overflow:hidden;border-radius:24px;background:#1b1d1e;color:#f4f5f7;border:1px solid #34383b}.card{padding:16px;font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif)}.rows{display:grid;gap:9px}.row{display:flex;align-items:center;min-height:65px;border-radius:17px;background:#242729;padding:10px 14px}.row>span{width:40px;font-size:24px}.row div{display:grid}.row b{color:#aeb7c5;font-size:13px;text-transform:uppercase;letter-spacing:.6px}.row strong{font-size:18px;margin-top:4px}.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:12px}button{min-height:48px;border:0;border-radius:15px;background:#242729;color:#f4f5f7;font:inherit;font-weight:700}button:disabled{opacity:.4}</style>';this.querySelectorAll("button").forEach(el=>el.onclick=()=>this._press(btns[Number(el.dataset.i)]));}
+  setConfig(config) { this._config = config || {}; this._render(); }
+  set hass(hass) { this._hass = hass; this._render(); }
+  getCardSize() { return 5; }
+  _find(...names) {
+    if (!this._hass?.states) return null;
+    const wanted = names.map(n => n.toLowerCase().replaceAll(" ", "_"));
+    return Object.values(this._hass.states).find(e => {
+      const id = e.entity_id.toLowerCase();
+      const name = String(e.attributes?.friendly_name || "").toLowerCase().replaceAll(" ", "_");
+      return (id.includes("chastify") || name.includes("chastify")) && wanted.some(n => id.endsWith("_" + n) || name.endsWith(n));
+    }) || null;
+  }
+  _value(e) { return !e || ["unknown", "unavailable"].includes(e.state) ? "—" : e.state; }
+  _press(e) { if (e) this._hass.callService("button", "press", {entity_id:e.entity_id}); }
+  _render() {
+    if (!this._hass) return;
+    const values = [
+      ["Time locked", this._find("time_locked")],
+      ["Time remaining", this._find("time_remaining")],
+      ["Task points", this._find("task_points")],
+      ["Points remaining", this._find("task_points_remaining")]
+    ];
+    const locked = this._find("locked"), frozen = this._find("frozen");
+    const actions = [["Refresh",this._find("refresh")],["Freeze",this._find("freeze")],["Unfreeze",this._find("unfreeze")],["Hygienic unlock",this._find("unlock")],["Add 1 hour",this._find("add_1_hour")],["Subtract 1 hour",this._find("subtract_1_hour")]].filter(x => x[1]?.entity_id?.startsWith("button."));
+    this.innerHTML = '<ha-card><div class="card"><h2>'+ (this._config.title || "Chastify") +'</h2><div class="pills"><span>Locked: '+this._value(locked)+'</span><span>Frozen: '+this._value(frozen)+'</span></div><div class="grid">'+values.map(v=>'<div class="tile"><small>'+v[0]+'</small><b>'+this._value(v[1])+'</b></div>').join("")+'</div><div class="actions">'+actions.map((v,i)=>'<button data-i="'+i+'">'+v[0]+'</button>').join("")+'</div><small class="note">Actions remain subject to Chastify permissions.</small></div></ha-card><style>:host{display:block}ha-card{overflow:hidden;border-radius:20px}.card{padding:16px;color:var(--primary-text-color)}h2{margin:0 0 12px;font-size:20px}.pills{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.pills span,.tile{background:var(--secondary-background-color);border-radius:12px;padding:10px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.tile{display:grid;gap:6px;min-width:0}.tile small,.note{color:var(--secondary-text-color)}.tile b{font-size:16px;overflow-wrap:anywhere}.actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px;margin-top:12px}button{border:0;border-radius:12px;min-height:44px;background:var(--secondary-background-color);color:var(--primary-text-color);font:inherit;font-weight:600;cursor:pointer}.note{display:block;margin-top:12px}</style>';
+    this.querySelectorAll("button").forEach(el => el.onclick = () => this._press(actions[Number(el.dataset.i)]?.[1]));
+  }
 }
-customElements.define("chastify-card",ChastifyCard);
-window.customCards=window.customCards||[];
-window.customCards.push({
-  type:"chastify-card",
-  name:"Chastify Card",
-  description:"Chastify session status and controls.",
-  preview:true,
-  getEntitySuggestion: (hass, entityId) => {
-    if (!entityId.toLowerCase().includes("chastify")) return null;
-    return { config: { type: "custom:chastify-card" } };
-  },
-});
+customElements.define("chastify-card", ChastifyCard);
+window.customCards = window.customCards || [];
+window.customCards.push({type:"chastify-card",name:"Chastify Card",description:"Responsive Chastify session status and controls.",preview:true,getEntitySuggestion:(hass,id)=>id.toLowerCase().includes("chastify")?{config:{type:"custom:chastify-card"}}:null});

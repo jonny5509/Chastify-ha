@@ -236,10 +236,11 @@ class ClearCalendarHistoryButton(ChastifyButton):
 
     def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:
         super().__init__(coordinator, entry)
+        self._entry_id = entry.entry_id
         self._attr_unique_id = f"{entry.entry_id}_clear_calendar_history"
 
     async def async_press(self) -> None:
-        calendar = self.hass.data.get(DOMAIN, {}).get(self.config_entry.entry_id, {}).get("calendar")
+        calendar = self.hass.data.get(DOMAIN, {}).get(self._entry_id, {}).get("calendar")
         if calendar is None:
             raise HomeAssistantError("Chastify calendar is not available")
         await calendar.async_clear_history()

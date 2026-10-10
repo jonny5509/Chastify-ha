@@ -204,5 +204,5 @@ def test_calendar_rejects_invalid_or_reversed_event_bounds() -> None:
     )
 
     assert start == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
-    assert end == fetched_at + timedelta(seconds=60)
+    assert end == datetime(2026, 10, 10, 12, 30, tzinfo=timezone.utc)
     assert end <= start

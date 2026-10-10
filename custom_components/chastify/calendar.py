@@ -94,7 +94,17 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         # Some API payloads expose only elapsed lock duration, so a newly
         # calculated start can move by a few seconds between polls. Reuse the
         # stored identity and original start for a matching active session.
-        prior = _matching_active_record(self._history, start, title)
+        # Only tolerate start-time drift when the API omitted an explicit
+        # start timestamp and we derived it from elapsed lock duration.
+        explicit_start = _first_datetime(
+            data, ("startDate", "startAt", "startedAt", "createdAt",
+                   "start_date", "startTimestamp", "startDateTime")
+        )
+        prior = (
+            _matching_active_record(self._history, start, title)
+            if explicit_start is None
+            else None
+        )
         uid = _session_uid(self.unique_id, start, title)
         if prior is not None:
             prior_start = _parse_datetime(prior.get("start"))

@@ -65,13 +65,15 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
         title = field(data, "lockTitle") or field(data, "title") or "Chastify session"
         lock_type = field(data, "lockType") or field(data, "deviceType")
-        description = f"Chastify session{f' — {lock_type}' if lock_type else ''}"
+        description = "Chastify session"
+        if lock_type:
+            description += f" — {lock_type}"
         return CalendarEvent(
             summary=str(title),
             start=start,
             end=end,
             description=description,
-            uid=f"{self.unique_id}:{start.isoformat()}",
+            uid=f"{self.unique_id}:active-session",
         )
 
     async def async_get_events(

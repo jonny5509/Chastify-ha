@@ -45,6 +45,22 @@ def test_calendar_falls_back_to_explicit_end_when_remaining_is_hidden() -> None:
     assert end == datetime(2026, 10, 10, 13, 0, tzinfo=timezone.utc)
 
 
+def test_calendar_keeps_active_session_visible_after_timer_expiry() -> None:
+    fetched_at = datetime(2026, 10, 10, 12, 5, tzinfo=timezone.utc)
+    data = {
+        "lockData": {
+            "startDate": "2026-10-10T12:00:00Z",
+            "endDate": "2026-10-10T12:04:00Z",
+            "timeRemainingSeconds": 0,
+        }
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    assert end == fetched_at + timedelta(seconds=60)
+
+
 def test_session_history_uid_is_stable_for_same_session() -> None:
     start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 

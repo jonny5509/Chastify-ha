@@ -45,9 +45,8 @@ from .const import (
     SERVICE_REMOVE_TIME,
     SERVICE_UNFREEZE,
 )
-from .coordinator import ChastifyCoordinator\nfrom .notifications import ChastifyNotifications
-
-
+from .coordinator import ChastifyCoordinator
+from .notifications import ChastifyNotifications
 
 _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
@@ -70,7 +69,6 @@ SERVICE_NAMES = (
     SERVICE_DEVICE_COMMAND,
 )
 
-
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     card_file = Path(__file__).resolve().parent / "www" / "chastify-card.js"
@@ -78,7 +76,6 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         await hass.http.async_register_static_paths([StaticPathConfig("/chastify/chastify-card.js", str(card_file), cache_headers=False)])
         frontend.add_extra_js_url(hass, "/chastify/chastify-card.js")
     return True
-
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate older installations and remove the retired last-seen sensor."""
@@ -129,7 +126,6 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(entry, version=19)
 
     return True
-
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api = ChastifyApi(entry.data[CONF_TOKEN], async_get_clientsession(hass))
@@ -223,13 +219,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.services.async_register(DOMAIN, name, handler, schema=schema)
     return True
 
+async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
 
-async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:\n    await hass.config_entries.async_reload(entry.entry_id)\n\n\nasync def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     data = hass.data[DOMAIN].get(entry.entry_id)
     if not data:
         return True
 
-    if data.get("notifications"):\n        await data["notifications"].async_stop()\n\n    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if data.get("notifications"):
+        await data["notifications"].async_stop()
+
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         for name in SERVICE_NAMES:
             if hass.services.has_service(DOMAIN, name):

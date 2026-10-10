@@ -1,5 +1,7 @@
 DOMAIN = "chastify"
 CONF_TOKEN = "token"
+CONF_DAILY_NOTIFICATIONS = "daily_congratulations"
+CONF_END_NOTIFICATIONS = "session_end_congratulations"
 BASE_URL = "https://chastify.net/api/apps/v1"
 DEFAULT_SCAN_INTERVAL = 30
 

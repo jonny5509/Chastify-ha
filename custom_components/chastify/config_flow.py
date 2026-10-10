@@ -4,7 +4,12 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
-from .const import CONF_TOKEN, DOMAIN
+from .const import (
+    CONF_DAILY_NOTIFICATIONS,
+    CONF_END_NOTIFICATIONS,
+    CONF_TOKEN,
+    DOMAIN,
+)
 
 
 async def _validate_token(token: str) -> None:
@@ -51,7 +56,7 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(self, entry_data):
+    @staticmethod\n    def async_get_options_flow(config_entry):\n        return ChastifyOptionsFlow(config_entry)\n\n    async def async_step_reauth(self, entry_data):
         self._reauth_entry = self.hass.config_entries.async_get_entry(
             self.context["entry_id"]
         )
@@ -80,4 +85,32 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
             errors=errors,
+        )
+
+
+class ChastifyOptionsFlow(config_entries.OptionsFlow):
+    """Configure Chastify session congratulations."""
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_DAILY_NOTIFICATIONS,
+                        default=options.get(CONF_DAILY_NOTIFICATIONS, True),
+                    ): bool,
+                    vol.Required(
+                        CONF_END_NOTIFICATIONS,
+                        default=options.get(CONF_END_NOTIFICATIONS, True),
+                    ): bool,
+                }
+            ),
         )

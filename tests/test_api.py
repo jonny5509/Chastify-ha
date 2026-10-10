@@ -117,3 +117,51 @@ def test_read_timeout_keeps_standard_timeout_message() -> None:
             await api.async_get_session()
 
     asyncio.run(run())
+
+
+def test_stale_lock_selector_clears_and_next_session_can_be_selected() -> None:
+    async def run() -> None:
+        new_lock_id = "abcdef0123456789abcdef01"
+        session = SessionWithResponses([
+            (200, {"lock": {"_id": LOCK_ID}, "lockData": {}}),
+            (409, {"error": "no_active_lock_session", "message": "Session ended"}),
+            (200, {"lock": {"_id": new_lock_id}, "lockData": {}}),
+            (200, {"ok": True}),
+        ])
+        api = ChastifyApi("test-token", session=session)
+
+        await api.async_get_session()
+        with pytest.raises(Exception, match="Session ended"):
+            await api.async_get_session()
+
+        # After the stale target is rejected, the next read discovers the
+        # current session without a selector; subsequent writes use that ID.
+        await api.async_get_session()
+        await api.async_apply_time(60)
+
+        assert session.calls[1]["headers"]["x-chastify-lock-id"] == LOCK_ID
+        assert "x-chastify-lock-id" not in session.calls[2]["headers"]
+        assert session.calls[3]["headers"]["x-chastify-lock-id"] == new_lock_id
+
+    asyncio.run(run())
+
+
+class StatusResponse(FakeResponse):
+    def __init__(self, status, payload):
+        super().__init__(payload)
+        self.status = status
+
+
+class StatusRequest(FakeRequest):
+    pass
+
+
+class SessionWithResponses:
+    def __init__(self, responses):
+        self.calls = []
+        self.responses = list(responses)
+
+    def request(self, method, url, **kwargs):
+        self.calls.append({"method": method, "url": url, **kwargs})
+        status, payload = self.responses.pop(0)
+        return StatusRequest(StatusResponse(status, payload))

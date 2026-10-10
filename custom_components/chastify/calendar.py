@@ -222,9 +222,13 @@ def _session_uid(unique_id: str, start: datetime, title: str) -> str:
 
 
 def _matching_active_record(
-    history: list[dict[str, Any]], start: datetime, title: str
+    history: list[dict[str, Any]],
+    start: datetime,
+    title: str,
+    *,
+    allow_start_drift: bool = True,
 ) -> dict[str, Any] | None:
-    """Find the closest active history record when a derived start drifts slightly."""
+    """Find the closest active record, optionally tolerating inferred-start drift."""
     candidates: list[tuple[float, dict[str, Any]]] = []
     start_utc = start.astimezone(timezone.utc)
     for item in history:
@@ -235,7 +239,7 @@ def _matching_active_record(
             continue
         delta = abs((start_utc - prior_start.astimezone(timezone.utc)).total_seconds())
         # Keep this narrow: avoid accidentally combining separate sessions.
-        if delta <= 90:
+        if allow_start_drift and delta <= 90:
             candidates.append((delta, item))
     return min(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
 

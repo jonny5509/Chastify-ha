@@ -221,7 +221,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.services.async_register(DOMAIN, name, handler, schema=schema)
 
     async def test_notification(call: ServiceCall) -> None:
-        """Test both Home Assistant and Companion App notification delivery."""
+        """Create a test persistent notification in Home Assistant only."""
         notification_manager = next(
             (item.get("notifications") for item in hass.data[DOMAIN].values()
              if isinstance(item, dict) and item.get("notifications") is not None),

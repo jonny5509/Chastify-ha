@@ -109,6 +109,7 @@ class ChastifyNotifications:
 
             start_iso = start.astimezone(timezone.utc).isoformat()
             parsed_active_start = _parse(active_start)
+            state_changed = False
             if not active_start or (
                 explicit_start is not None
                 and (
@@ -118,6 +119,7 @@ class ChastifyNotifications:
             ):
                 self.state = {"active_start": start_iso, "last_daily_day": 0}
                 active_start = start_iso
+                state_changed = True
 
             # Keep inferred starts stable across coordinator polls.
             start = _parse(active_start) or start
@@ -135,11 +137,9 @@ class ChastifyNotifications:
                 )
                 if await self._notify("Daily congratulations", message):
                     self.state["last_daily_day"] = elapsed_days
-                    await self._save()
-            elif not self.entry.options.get(CONF_DAILY_NOTIFICATIONS, True):
-                # Persist the session start even when daily messages are disabled.
-                await self._save()
-            elif self.state.get("active_start") == start_iso and not active_start:
+                    state_changed = True
+
+            if state_changed:
                 await self._save()
 
         elif active_start:

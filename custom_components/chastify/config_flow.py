@@ -4,7 +4,10 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
-from .const import (\n    CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,\n    CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,\n)
+from .const import (
+    CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
+    CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,
+)
 
 
 async def _validate_token(token: str) -> None:
@@ -18,7 +21,11 @@ async def _validate_token(token: str) -> None:
 
 
 class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 19\n\n    @staticmethod\n    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:\n        return ChastifyOptionsFlow()
+    VERSION = 19
+
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+        return ChastifyOptionsFlow()
 
     async def async_step_user(self, user_input=None):
         if self._async_current_entries():

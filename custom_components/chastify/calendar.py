@@ -96,6 +96,14 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if start is None or end is None or end <= start:
             return None
 
+        # The scheduled end is not proof that the session has finished. While
+        # the API still reports a current session, extend the calendar event
+        # forward so it remains visible even if the session runs overtime.
+        if end <= now:
+            interval = getattr(self.coordinator, "update_interval", None)
+            seconds = interval.total_seconds() if isinstance(interval, timedelta) else 60
+            end = now + timedelta(seconds=max(60, seconds))
+
         title = str(field(data, "lockTitle") or field(data, "title") or "Chastify session")
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description_lines = ["Chastify session"]

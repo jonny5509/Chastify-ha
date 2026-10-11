@@ -1,8 +1,10 @@
-"""Configurable session congratulations notifications."""
+"""Configurable session milestone and completion notifications."""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 import logging
+import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,7 +12,13 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.storage import Store
 
 from .calendar import _first_datetime, _session_bounds
-from .const import CONF_DAILY_NOTIFICATIONS, CONF_END_NOTIFICATIONS, DOMAIN
+from .const import (
+    CONF_DAILY_NOTIFICATIONS,
+    CONF_END_NOTIFICATIONS,
+    CONF_NOTIFICATION_SERVICE,
+    DEFAULT_NOTIFICATION_SERVICE,
+    DOMAIN,
+)
 from .coordinator import ChastifyCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -21,12 +29,20 @@ _START_KEYS = (
 
 
 class ChastifyNotifications:
-    """Send daily and session-end notifications, with persisted de-duplication."""
+    """Send daily and session-end notifications with persistent de-duplication."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, coordinator: ChastifyCoordinator):
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
+        configured_service = str(
+            entry.options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)
+        ).strip()
+        self.service = (
+            configured_service.split(".", 1)[1]
+            if re.fullmatch(r"notify\.[a-z0-9_]+", configured_service)
+            else DEFAULT_NOTIFICATION_SERVICE.split(".", 1)[1]
+        )
         self.store: Store[dict[str, Any]] = Store(
             hass, _STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_notification_state"
         )
@@ -36,6 +52,7 @@ class ChastifyNotifications:
         self._save_task = None
 
     async def async_start(self) -> None:
+        """Restore state and subscribe to coordinator updates."""
         saved = await self.store.async_load()
         if isinstance(saved, dict):
             self.state = saved
@@ -43,6 +60,7 @@ class ChastifyNotifications:
         await self._process()
 
     async def async_stop(self) -> None:
+        """Unsubscribe and wait for outstanding work."""
         if self._unsub:
             self._unsub()
             self._unsub = None
@@ -56,12 +74,31 @@ class ChastifyNotifications:
         if self._task is None or self._task.done():
             self._task = self.hass.async_create_task(self._process())
 
+    async def _notify(self, title: str, message: str) -> bool:
+        """Send through the same Home Assistant notify service style as Chaster."""
+        try:
+            await self.hass.services.async_call(
+                "notify",
+                self.service,
+                {"title": title, "message": message},
+                blocking=True,
+            )
+            return True
+        except Exception:  # Home Assistant notification services may raise service errors.
+            _LOGGER.exception(
+                "Unable to send Chastify notification using notify.%s", self.service
+            )
+            return False
+
     async def _process(self) -> None:
+        """Check daily milestones and session completion."""
         data = self.coordinator.data
         if not isinstance(data, dict):
             return
+
         now = datetime.now(timezone.utc)
         active_start = self.state.get("active_start")
+
         if data:
             explicit_start = _first_datetime(data, _START_KEYS)
             start, _ = _session_bounds(data, now)
@@ -69,52 +106,69 @@ class ChastifyNotifications:
                 start = explicit_start
             if start is None:
                 return
+
             start_iso = start.astimezone(timezone.utc).isoformat()
+            parsed_active_start = _parse(active_start)
+            state_changed = False
             if not active_start or (
                 explicit_start is not None
-                and abs((explicit_start - _parse(active_start)).total_seconds()) > 90
+                and (
+                    parsed_active_start is None
+                    or abs((explicit_start - parsed_active_start).total_seconds()) > 90
+                )
             ):
                 self.state = {"active_start": start_iso, "last_daily_day": 0}
                 active_start = start_iso
-            # If no explicit timestamp exists, retain the first observed inferred
-            # start so the timer does not drift between coordinator polls.
+                state_changed = True
+
+            # Keep inferred starts stable across coordinator polls.
             start = _parse(active_start) or start
             elapsed_days = max(0, int((now - start).total_seconds() // 86400))
-            if self.entry.options.get(CONF_DAILY_NOTIFICATIONS, True) and elapsed_days > int(self.state.get("last_daily_day", 0)):
-                await self.hass.services.async_call(
-                    "persistent_notification", "create",
-                    {
-                        "title": "🎉 Chastify congratulations!",
-                        "message": f"Congratulations! You've reached Day {elapsed_days} of your Chastify session.",
-                        "notification_id": f"chastify_{self.entry.entry_id}_day_{elapsed_days}",
-                    },
-                    blocking=True,
+
+            if (
+                self.entry.options.get(CONF_DAILY_NOTIFICATIONS, True)
+                and elapsed_days >= 1
+                and elapsed_days > int(self.state.get("last_daily_day", 0))
+            ):
+                message = (
+                    f"🎉 Congratulations! You've completed {elapsed_days} "
+                    f"{'day' if elapsed_days == 1 else 'days'} of your Chastify session. "
+                    "Keep it going!"
                 )
-                self.state["last_daily_day"] = elapsed_days
+                if await self._notify("Daily congratulations", message):
+                    self.state["last_daily_day"] = elapsed_days
+                    state_changed = True
+
+            if state_changed:
                 await self._save()
-            elif not self.state.get("active_start"):
-                self.state["active_start"] = start_iso
-                await self._save()
-        elif data == {} and active_start:
+
+        elif active_start:
             start = _parse(active_start)
-            if start is not None and self.entry.options.get(CONF_END_NOTIFICATIONS, True):
+            if start is None:
+                self.state = {}
+                await self._save()
+                return
+
+            if self.entry.options.get(CONF_END_NOTIFICATIONS, True):
                 days = max(0, int((now - start).total_seconds() // 86400))
-                await self.hass.services.async_call(
-                    "persistent_notification", "create",
-                    {
-                        "title": "🎉 Chastify session complete!",
-                        "message": f"Congratulations on completing your Chastify session after {days} full day(s)!",
-                        "notification_id": f"chastify_{self.entry.entry_id}_session_end",
-                    },
-                    blocking=True,
+                message = (
+                    f"🏆 Congratulations! Your Chastify session has ended after {days} "
+                    f"{'day' if days == 1 else 'days'}. Well done!"
                 )
+                # Retain state if delivery fails so the next coordinator update retries.
+                if not await self._notify("Session completed", message):
+                    return
+
             self.state = {}
             await self._save()
 
     async def _save(self) -> None:
+        """Serialize storage writes so an older snapshot cannot overwrite a newer one."""
         snapshot = dict(self.state)
         previous = self._save_task
-        self._save_task = self.hass.async_create_task(_save_snapshot(self.store, snapshot, previous))
+        self._save_task = self.hass.async_create_task(
+            _save_snapshot(self.store, snapshot, previous)
+        )
         await self._save_task
 
 
@@ -131,6 +185,7 @@ async def _save_snapshot(store: Store, snapshot: dict[str, Any], previous: Any) 
 
 
 def _parse(value: Any) -> datetime | None:
+    """Parse a persisted timestamp as a UTC-aware datetime."""
     if not isinstance(value, str):
         return None
     try:

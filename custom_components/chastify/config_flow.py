@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -7,6 +8,8 @@ from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoAct
 from .const import (
     CONF_DAILY_NOTIFICATIONS,
     CONF_END_NOTIFICATIONS,
+    CONF_NOTIFICATION_SERVICE,
+    DEFAULT_NOTIFICATION_SERVICE,
     CONF_TOKEN,
     DOMAIN,
 )
@@ -93,10 +96,17 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class ChastifyOptionsFlow(config_entries.OptionsFlow):
-    """Configure Chastify session congratulations."""
+    """Configure Chastify session congratulations and notification delivery."""
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
+            service = str(
+                user_input.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)
+            ).strip()
+            if not re.fullmatch(r"notify\.[a-z0-9_]+", service):
+                user_input[CONF_NOTIFICATION_SERVICE] = DEFAULT_NOTIFICATION_SERVICE
+            else:
+                user_input[CONF_NOTIFICATION_SERVICE] = service
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
@@ -112,6 +122,12 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
                         CONF_END_NOTIFICATIONS,
                         default=options.get(CONF_END_NOTIFICATIONS, True),
                     ): bool,
+                    vol.Required(
+                        CONF_NOTIFICATION_SERVICE,
+                        default=options.get(
+                            CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE
+                        ),
+                    ): str,
                 }
             ),
         )

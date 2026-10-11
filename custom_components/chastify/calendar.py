@@ -44,7 +44,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         self._attr_unique_id = f"{entry.entry_id}_session_calendar"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"{entry.entry_id}_my_lock")},
-            name="Session",
+            name="Chastify",
             manufacturer="Chastify",
             model="Chastify Lock",
         )

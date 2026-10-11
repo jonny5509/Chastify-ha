@@ -76,8 +76,7 @@ class ChastifyNotifications:
             self._task = self.hass.async_create_task(self._process())
 
     async def _notify(self, title: str, message: str) -> bool:
-        """Create an in-app notification and deliver via the configured notify service."""
-        # Stable ID prevents retries from creating duplicate persistent notifications.
+        """Create an in-app notification and deliver to configured and mobile-app targets."""
         notification_id = (
             f"{DOMAIN}_{self.entry.entry_id}_"
             f"{hashlib.sha256((title + '|' + message).encode()).hexdigest()[:16]}"
@@ -96,20 +95,38 @@ class ChastifyNotifications:
         except Exception:  # noqa: BLE001
             _LOGGER.exception("Unable to create Home Assistant persistent notification")
 
-        try:
-            await self.hass.services.async_call(
-                "notify",
-                self.service,
-                {"title": title, "message": message},
-                blocking=True,
-            )
-            return True
-        except Exception:  # Home Assistant notification services may raise service errors.
-            _LOGGER.exception(
-                "Unable to send Chastify notification using notify.%s",
-                self.service,
-            )
-            return False
+        # If a specific mobile_app target is configured, use that target. Otherwise
+        # also send directly to registered Companion App services so phone pushes
+        # do not depend on the generic notify.notify group including those devices.
+        mobile_services = [
+            name
+            for name in self.hass.services.async_services().get("notify", {})
+            if name.startswith("mobile_app_")
+        ]
+        if self.service.startswith("mobile_app_"):
+            targets = [self.service]
+        else:
+            targets = list(mobile_services)
+            if self.service != "notify" and self.service not in targets:
+                targets.append(self.service)
+            elif not targets:
+                targets = [self.service]
+
+        delivered = False
+        for service in dict.fromkeys(targets):
+            try:
+                await self.hass.services.async_call(
+                    "notify",
+                    service,
+                    {"title": title, "message": message},
+                    blocking=True,
+                )
+                delivered = True
+            except Exception:  # Home Assistant notification services may raise service errors.
+                _LOGGER.exception(
+                    "Unable to send Chastify notification using notify.%s", service
+                )
+        return delivered
     async def _process(self) -> None:
         """Check daily milestones and session completion."""
         data = self.coordinator.data

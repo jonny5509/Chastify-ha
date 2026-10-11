@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -96,7 +97,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         message = "This is a test notification. Your Chastify notification delivery is configured."
         if mobile:
             service = str(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
-            if not __import__("re").fullmatch(r"notify\\.[a-z0-9_]+", service):
+            if not re.fullmatch(r"notify\\.[a-z0-9_]+", service):
                 raise HomeAssistantError("Select a valid mobile notification service in Chastify options")
             await hass.services.async_call("notify", service.split(".", 1)[1], {"title": title, "message": message}, blocking=True)
         if persistent:

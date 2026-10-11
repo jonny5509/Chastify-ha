@@ -44,6 +44,7 @@ from .const import (
     SERVICE_LOG,
     SERVICE_REMOVE_TIME,
     SERVICE_UNFREEZE,
+    SERVICE_TEST_NOTIFICATION,
 )
 from .coordinator import ChastifyCoordinator
 from .notifications import ChastifyNotifications
@@ -67,6 +68,7 @@ SERVICE_NAMES = (
     SERVICE_HYGIENIC_UNLOCK,
     SERVICE_LOG,
     SERVICE_DEVICE_COMMAND,
+    SERVICE_TEST_NOTIFICATION,
 )
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -217,6 +219,30 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for name, (handler, schema) in registrations.items():
         if not hass.services.has_service(DOMAIN, name):
             hass.services.async_register(DOMAIN, name, handler, schema=schema)
+
+    async def test_notification(call: ServiceCall) -> None:
+        """Test both Home Assistant and Companion App notification delivery."""
+        notification_manager = next(
+            (item.get("notifications") for item in hass.data[DOMAIN].values()
+             if isinstance(item, dict) and item.get("notifications") is not None),
+            None,
+        )
+        if notification_manager is None:
+            raise HomeAssistantError("Chastify notifications are not initialized")
+        delivered = await notification_manager._notify(
+            "Chastify test notification",
+            call.data.get("message", "This is a test notification from Chastify."),
+        )
+        if not delivered:
+            raise HomeAssistantError(
+                "No notify service accepted the test message. Check Home Assistant logs and your notify service configuration."
+            )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_TEST_NOTIFICATION):
+        hass.services.async_register(
+            DOMAIN, SERVICE_TEST_NOTIFICATION, test_notification,
+            schema=vol.Schema({vol.Optional("message"): str}),
+        )
     return True
 
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:

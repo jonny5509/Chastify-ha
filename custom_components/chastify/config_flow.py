@@ -4,7 +4,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
-from .const import CONF_TOKEN, DOMAIN
+from .const import (\n    CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,\n    CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,\n)
 
 
 async def _validate_token(token: str) -> None:
@@ -18,7 +18,7 @@ async def _validate_token(token: str) -> None:
 
 
 class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    VERSION = 19
+    VERSION = 19\n\n    @staticmethod\n    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:\n        return ChastifyOptionsFlow()
 
     async def async_step_user(self, user_input=None):
         if self._async_current_entries():
@@ -80,4 +80,20 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
             errors=errors,
+        )
+
+
+class ChastifyOptionsFlow(config_entries.OptionsFlow):
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Optional(CONF_ENABLE_NOTIFICATIONS, default=options.get(CONF_ENABLE_NOTIFICATIONS, False)): bool,
+                vol.Optional(CONF_NOTIFICATION_SERVICE, default=options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)): vol.All(str, vol.Match(r"^notify\\.[a-z0-9_]+$")),
+                vol.Optional(CONF_NOTIFY_DAILY, default=options.get(CONF_NOTIFY_DAILY, False)): bool,
+                vol.Optional(CONF_NOTIFY_COMPLETION, default=options.get(CONF_NOTIFY_COMPLETION, False)): bool,
+            }),
         )

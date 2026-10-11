@@ -13,7 +13,9 @@ from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_time_interval
 from datetime import timedelta
 
-from .coordinator import field\n\nfrom .const import (
+from .coordinator import field
+
+from .const import (
     CONF_ENABLE_NOTIFICATIONS,
     CONF_NOTIFICATION_SERVICE,
     CONF_NOTIFY_DAILY,
@@ -53,10 +55,10 @@ class ChastifySessionNotifications:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
-        self.store = Store(hass, 1, f"${DOMAIN}_session_notifications_${entry.entry_id}")
+        self.store = Store(hass, 1, f"{DOMAIN}_session_notifications_{entry.entry_id}")
         self.state: dict[str, Any] = {}
         service = str(entry.options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
-        self.service = service.split(".", 1)[1] if re.fullmatch(r"notify\\.[a-z0-9_]+", service) else "notify"
+        self.service = service.split(".", 1)[1] if re.fullmatch(r"notify\.[a-z0-9_]+", service) else "notify"
 
     async def async_start(self) -> None:
         saved = await self.store.async_load()
@@ -88,8 +90,17 @@ class ChastifySessionNotifications:
         if not isinstance(session, dict):
             session = {}
         active = bool(data) and not bool(field(data, "isEnded"))
-        start_value = field(data, "startDate") or field(data, "start_date") or field(data, "startedAt") or field(data, "startTimestamp")\n        start = _timestamp(start_value)\n        if start is None:\n            locked = _timestamp(field(data, "timeLockedSeconds"))\n            if locked is not None:\n                start = now - locked
         now = datetime.now(timezone.utc).timestamp()
+        start_value = field(data, "startDate") or field(data, "start_date") or field(data, "startedAt") or field(data, "startTimestamp")
+        start = _timestamp(start_value)
+        if start is None:
+            locked = field(data, "timeLockedSeconds")
+            try:
+                locked_seconds = max(0.0, float(locked)) if locked is not None else None
+            except (TypeError, ValueError):
+                locked_seconds = None
+            if locked_seconds is not None:
+                start = now - locked_seconds
         name = str(field(data, "lockTitle") or field(data, "title") or "chastify session")
         changed = False
 

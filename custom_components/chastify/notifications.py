@@ -19,13 +19,22 @@ from .const import (
     DEFAULT_NOTIFICATION_SERVICE,
     DOMAIN,
 )
-from .coordinator import ChastifyCoordinator
+from .coordinator import ChastifyCoordinator, field
 
 _LOGGER = logging.getLogger(__name__)
 _STORAGE_VERSION = 1
 _START_KEYS = (
     "startDate", "startAt", "startedAt", "start_date", "startTimestamp", "startDateTime"
 )
+
+
+def _session_name(data: dict[str, Any]) -> str:
+    """Return a readable session name for the shared notification templates."""
+    for key in ("customWearerName", "lockTitle", "title", "name", "lockName"):
+        value = field(data, key)
+        if value is not None and str(value).strip():
+            return str(value).strip()
+    return "your session"
 
 
 class ChastifyNotifications:
@@ -75,7 +84,7 @@ class ChastifyNotifications:
             self._task = self.hass.async_create_task(self._process())
 
     async def _notify(self, title: str, message: str) -> bool:
-        """Send through the same Home Assistant notify service style as Chaster."""
+        """Deliver a notification through the configured Home Assistant notify service."""
         try:
             await self.hass.services.async_call(
                 "notify",
@@ -91,7 +100,7 @@ class ChastifyNotifications:
             return False
 
     async def _process(self) -> None:
-        """Check daily milestones and session completion."""
+        """Check daily milestones and session completion using Chaster's message format."""
         data = self.coordinator.data
         if not isinstance(data, dict):
             return
@@ -117,12 +126,20 @@ class ChastifyNotifications:
                     or abs((explicit_start - parsed_active_start).total_seconds()) > 90
                 )
             ):
-                self.state = {"active_start": start_iso, "last_daily_day": 0}
+                self.state = {
+                    "active_start": start_iso,
+                    "session_name": _session_name(data),
+                    "last_daily_day": 0,
+                }
                 active_start = start_iso
                 state_changed = True
+            elif not self.state.get("session_name"):
+                self.state["session_name"] = _session_name(data)
+                state_changed = True
 
-            # Keep inferred starts stable across coordinator polls.
+            # Keep inferred starts and the session name stable across coordinator polls.
             start = _parse(active_start) or start
+            session_name = str(self.state.get("session_name") or _session_name(data))
             elapsed_days = max(0, int((now - start).total_seconds() // 86400))
 
             if (
@@ -132,8 +149,7 @@ class ChastifyNotifications:
             ):
                 message = (
                     f"🎉 Congratulations! You've completed {elapsed_days} "
-                    f"{'day' if elapsed_days == 1 else 'days'} of your Chastify session. "
-                    "Keep it going!"
+                    f"{'day' if elapsed_days == 1 else 'days'} of {session_name}. Keep it going!"
                 )
                 if await self._notify("Daily congratulations", message):
                     self.state["last_daily_day"] = elapsed_days
@@ -151,8 +167,9 @@ class ChastifyNotifications:
 
             if self.entry.options.get(CONF_END_NOTIFICATIONS, True):
                 days = max(0, int((now - start).total_seconds() // 86400))
+                session_name = str(self.state.get("session_name") or "your session")
                 message = (
-                    f"🏆 Congratulations! Your Chastify session has ended after {days} "
+                    f"🏆 Congratulations! {session_name} has ended after {days} "
                     f"{'day' if days == 1 else 'days'}. Well done!"
                 )
                 # Retain state if delivery fails so the next coordinator update retries.

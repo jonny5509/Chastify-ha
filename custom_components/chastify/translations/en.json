@@ -29,11 +29,14 @@
     "step": {
       "init": {
         "title": "Session congratulations",
-        "description": "Choose which Chastify session notifications are enabled and which Home Assistant notify service delivers them.",
+        "description": "Choose which session notifications are enabled and customise their titles and messages. Use {days} and {day_word} in message templates.",
         "data": {
           "daily_congratulations": "Daily congratulations (every 24 hours)",
           "session_end_congratulations": "Congratulations when the session ends",
-          "notification_service": "Notification service (for example notify.mobile_app_your_phone)"
+          "daily_notification_title": "Daily notification title",
+          "daily_notification_message": "Daily notification message (supports {days}, {day_word})",
+          "completion_notification_title": "Completion notification title",
+          "completion_notification_message": "Completion notification message (supports {days}, {day_word})"
         }
       }
     }

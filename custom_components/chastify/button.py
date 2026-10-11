@@ -63,8 +63,8 @@ async def async_setup_entry(
             SubtractOneHourButton(coordinator, entry),
             FreezeButton(coordinator, entry),
             UnfreezeButton(coordinator, entry),
-            TestDailyNotificationButton(hass, entry),
-            TestSessionEndNotificationButton(hass, entry),
+            TestDailyNotificationButton(entry),
+            TestSessionEndNotificationButton(entry),
         ]
     )
 
@@ -256,8 +256,7 @@ class TestNotificationButton(ButtonEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        self.hass = hass
+    def __init__(self, entry: ConfigEntry) -> None:
         self._entry_id = entry.entry_id
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_my_lock")},
@@ -273,8 +272,8 @@ class TestDailyNotificationButton(TestNotificationButton):
     _attr_name = "Test daily congratulations"
     _attr_icon = "mdi:party-popper"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        super().__init__(hass, entry)
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry)
         self._attr_unique_id = f"{entry.entry_id}_test_daily_notification"
 
     async def async_press(self) -> None:

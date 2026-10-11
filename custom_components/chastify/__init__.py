@@ -45,7 +45,8 @@ from .const import (
     SERVICE_REMOVE_TIME,
     SERVICE_UNFREEZE,
 )
-from .coordinator import ChastifyCoordinator\nfrom .notifications import async_setup_notifications
+from .coordinator import ChastifyCoordinator
+from .notifications import async_setup_notifications
 
 
 
@@ -131,7 +132,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:\n    await hass.config_entries.async_reload(entry.entry_id)\n\n\nasync def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     api = ChastifyApi(entry.data[CONF_TOKEN], async_get_clientsession(hass))
     coordinator = ChastifyCoordinator(hass, api, entry)
 
@@ -150,7 +155,9 @@ async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None
         # Keep the entry available so the normal coordinator retry can recover.
         _LOGGER.exception("Initial Chastify refresh failed")
 
-    entry.async_on_unload(entry.add_update_listener(async_options_updated))\n    await async_setup_notifications(hass, entry, coordinator)\n    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    entry.async_on_unload(entry.add_update_listener(async_options_updated))
+    await async_setup_notifications(hass, entry, coordinator)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     device_registry = dr.async_get(hass)
     entity_registry = er.async_get(hass)

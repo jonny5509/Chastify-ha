@@ -235,7 +235,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
         if not delivered:
             raise HomeAssistantError(
-                "No notify service accepted the test message. Check Home Assistant logs and your notify service configuration."
+                "Unable to create a Home Assistant persistent notification. Check Home Assistant logs for details."
             )
 
     if not hass.services.has_service(DOMAIN, SERVICE_TEST_NOTIFICATION):

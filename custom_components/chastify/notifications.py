@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timezone
 import logging
 import re
@@ -75,7 +76,26 @@ class ChastifyNotifications:
             self._task = self.hass.async_create_task(self._process())
 
     async def _notify(self, title: str, message: str) -> bool:
-        """Send through the same Home Assistant notify service style as Chaster."""
+        """Create an in-app notification and deliver via the configured notify service."""
+        # Stable ID prevents retries from creating duplicate persistent notifications.
+        notification_id = (
+            f"{DOMAIN}_{self.entry.entry_id}_"
+            f"{hashlib.sha256((title + '|' + message).encode()).hexdigest()[:16]}"
+        )
+        try:
+            await self.hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": title,
+                    "message": message,
+                    "notification_id": notification_id,
+                },
+                blocking=True,
+            )
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("Unable to create Home Assistant persistent notification")
+
         try:
             await self.hass.services.async_call(
                 "notify",
@@ -86,10 +106,10 @@ class ChastifyNotifications:
             return True
         except Exception:  # Home Assistant notification services may raise service errors.
             _LOGGER.exception(
-                "Unable to send Chastify notification using notify.%s", self.service
+                "Unable to send Chastify notification using notify.%s",
+                self.service,
             )
             return False
-
     async def _process(self) -> None:
         """Check daily milestones and session completion."""
         data = self.coordinator.data

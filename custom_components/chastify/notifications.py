@@ -15,6 +15,10 @@ from .calendar import _first_datetime, _session_bounds
 from .const import (
     CONF_DAILY_NOTIFICATIONS,
     CONF_END_NOTIFICATIONS,
+    CONF_DAILY_TITLE,
+    CONF_DAILY_MESSAGE,
+    CONF_COMPLETION_TITLE,
+    CONF_COMPLETION_MESSAGE,
     DOMAIN,
 )
 from .coordinator import ChastifyCoordinator
@@ -24,6 +28,17 @@ _STORAGE_VERSION = 1
 _START_KEYS = (
     "startDate", "startAt", "startedAt", "start_date", "startTimestamp", "startDateTime"
 )
+
+class _TemplateValues(dict):
+    def __missing__(self, key: str) -> str:
+        return "{" + key + "}"
+
+
+def format_notification_template(template: str, **values: Any) -> str:
+    try:
+        return str(template).format_map(_TemplateValues(values))
+    except (ValueError, TypeError):
+        return str(template)
 
 
 class ChastifyNotifications:
@@ -126,12 +141,16 @@ class ChastifyNotifications:
                 and elapsed_days >= 1
                 and elapsed_days > int(self.state.get("last_daily_day", 0))
             ):
-                message = (
-                    f"🎉 Congratulations! You've completed {elapsed_days} "
-                    f"{'day' if elapsed_days == 1 else 'days'} of your Chastify session. "
-                    "Keep it going!"
+                day_word = "day" if elapsed_days == 1 else "days"
+                message = format_notification_template(
+                    self.entry.options.get(CONF_DAILY_MESSAGE, "🎉 Congratulations! You have completed {days} {day_word} of your Chastify session. Keep it going!"),
+                    days=elapsed_days, day_word=day_word,
                 )
-                if await self._notify("Daily congratulations", message):
+                title = format_notification_template(
+                    self.entry.options.get(CONF_DAILY_TITLE, "Daily congratulations"),
+                    days=elapsed_days, day_word=day_word,
+                )
+                if await self._notify(title, message):
                     self.state["last_daily_day"] = elapsed_days
                     state_changed = True
 
@@ -147,12 +166,17 @@ class ChastifyNotifications:
 
             if self.entry.options.get(CONF_END_NOTIFICATIONS, True):
                 days = max(0, int((now - start).total_seconds() // 86400))
-                message = (
-                    f"🏆 Congratulations! Your Chastify session has ended after {days} "
-                    f"{'day' if days == 1 else 'days'}. Well done!"
+                day_word = "day" if days == 1 else "days"
+                message = format_notification_template(
+                    self.entry.options.get(CONF_COMPLETION_MESSAGE, "🏆 Congratulations! Your Chastify session has ended after {days} {day_word}. Well done!"),
+                    days=days, day_word=day_word,
+                )
+                title = format_notification_template(
+                    self.entry.options.get(CONF_COMPLETION_TITLE, "Session completed"),
+                    days=days, day_word=day_word,
                 )
                 # Retain state if delivery fails so the next coordinator update retries.
-                if not await self._notify("Session completed", message):
+                if not await self._notify(title, message):
                     return
 
             self.state = {}

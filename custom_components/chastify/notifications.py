@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 from datetime import datetime, timezone
 import logging
-import re
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -16,8 +15,6 @@ from .calendar import _first_datetime, _session_bounds
 from .const import (
     CONF_DAILY_NOTIFICATIONS,
     CONF_END_NOTIFICATIONS,
-    CONF_NOTIFICATION_SERVICE,
-    DEFAULT_NOTIFICATION_SERVICE,
     DOMAIN,
 )
 from .coordinator import ChastifyCoordinator
@@ -36,14 +33,6 @@ class ChastifyNotifications:
         self.hass = hass
         self.entry = entry
         self.coordinator = coordinator
-        configured_service = str(
-            entry.options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)
-        ).strip()
-        self.service = (
-            configured_service.split(".", 1)[1]
-            if re.fullmatch(r"notify\.[a-z0-9_]+", configured_service)
-            else DEFAULT_NOTIFICATION_SERVICE.split(".", 1)[1]
-        )
         self.store: Store[dict[str, Any]] = Store(
             hass, _STORAGE_VERSION, f"{DOMAIN}_{entry.entry_id}_notification_state"
         )

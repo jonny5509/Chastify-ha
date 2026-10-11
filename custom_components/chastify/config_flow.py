@@ -5,7 +5,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
 from .const import (
-    CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
+    CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_ENABLE_PHONE_NOTIFICATIONS, CONF_ENABLE_HA_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
     CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,
     CONF_NOTIFY_HA_DAILY, CONF_NOTIFY_HA_COMPLETION,
 )
@@ -105,7 +105,8 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Optional(CONF_ENABLE_NOTIFICATIONS, default=options.get(CONF_ENABLE_NOTIFICATIONS, False)): bool,
+                vol.Optional(CONF_ENABLE_PHONE_NOTIFICATIONS, default=options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False)): bool,
+                vol.Optional(CONF_ENABLE_HA_NOTIFICATIONS, default=options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)): bool,
                 vol.Optional(CONF_NOTIFICATION_SERVICE, default=options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)): vol.In(service_options),
                 vol.Optional(CONF_NOTIFY_HA_DAILY, default=options.get(CONF_NOTIFY_HA_DAILY, False)): bool,
                 vol.Optional(CONF_NOTIFY_HA_COMPLETION, default=options.get(CONF_NOTIFY_HA_COMPLETION, False)): bool,

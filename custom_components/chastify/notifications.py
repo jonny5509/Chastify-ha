@@ -17,6 +17,8 @@ from .coordinator import field
 
 from .const import (
     CONF_ENABLE_NOTIFICATIONS,
+    CONF_ENABLE_PHONE_NOTIFICATIONS,
+    CONF_ENABLE_HA_NOTIFICATIONS,
     CONF_NOTIFICATION_SERVICE,
     CONF_NOTIFY_DAILY,
     CONF_NOTIFY_COMPLETION,
@@ -79,7 +81,7 @@ class ChastifySessionNotifications:
         mobile_key = CONF_NOTIFY_DAILY if event == "daily" else CONF_NOTIFY_COMPLETION
         ha_key = CONF_NOTIFY_HA_DAILY if event == "daily" else CONF_NOTIFY_HA_COMPLETION
         delivered = False
-        if self.entry.options.get(mobile_key, False):
+        if self.entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) and self.entry.options.get(mobile_key, False):
             try:
                 await self.hass.services.async_call(
                     "notify", self.service, {"title": title, "message": message}, blocking=True
@@ -87,7 +89,7 @@ class ChastifySessionNotifications:
                 delivered = True
             except Exception:
                 _LOGGER.exception("Unable to send Chastify mobile notification through notify.%s", self.service)
-        if self.entry.options.get(ha_key, False):
+        if self.entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False) and self.entry.options.get(ha_key, False):
             try:
                 await self.hass.services.async_call(
                     "persistent_notification", "create",
@@ -131,7 +133,7 @@ class ChastifySessionNotifications:
                 self.state.update({"start": start, "last_daily_day": 0, "completion_notified": False})
                 changed = True
             elapsed_days = int(max(0, now - start) // 86400)
-            if (self.entry.options.get(CONF_NOTIFY_DAILY, False) or self.entry.options.get(CONF_NOTIFY_HA_DAILY, False)) and elapsed_days >= 1 and elapsed_days > int(self.state.get("last_daily_day", 0)):
+            if ((self.entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) and self.entry.options.get(CONF_NOTIFY_DAILY, False)) or (self.entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False) and self.entry.options.get(CONF_NOTIFY_HA_DAILY, False))) and elapsed_days >= 1 and elapsed_days > int(self.state.get("last_daily_day", 0)):
                 if await self._notify("chastify 24-hour reminder", f"{name}: {elapsed_days} day(s) since the session started.", "daily"):
                     self.state["last_daily_day"] = elapsed_days
                     changed = True
@@ -153,6 +155,6 @@ class ChastifySessionNotifications:
 
 async def async_setup_notifications(hass: HomeAssistant, entry: ConfigEntry, coordinator) -> None:
     """Start notifications only after the master opt-in is enabled."""
-    if not entry.options.get(CONF_ENABLE_NOTIFICATIONS, False):
+    if not (entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) or entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)):
         return
     await ChastifySessionNotifications(hass, entry, coordinator).async_start()

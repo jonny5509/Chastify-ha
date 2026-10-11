@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -34,6 +35,13 @@ from .const import (
     ATTR_SECONDS,
     ATTR_TITLE,
     CONF_TOKEN,
+    CONF_ENABLE_NOTIFICATIONS,
+    CONF_NOTIFICATION_SERVICE,
+    CONF_NOTIFY_DAILY,
+    CONF_NOTIFY_COMPLETION,
+    CONF_NOTIFY_HA_DAILY,
+    CONF_NOTIFY_HA_COMPLETION,
+    DEFAULT_NOTIFICATION_SERVICE,
     DOMAIN,
     SERVICE_ACTION,
     SERVICE_ADD_TIME,
@@ -75,6 +83,28 @@ SERVICE_NAMES = (
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     hass.data.setdefault(DOMAIN, {})
     card_file = Path(__file__).resolve().parent / "www" / "chastify-card.js"
+    async def test_notification(call: ServiceCall) -> None:
+        entries = hass.config_entries.async_entries(DOMAIN)
+        entry = next((item for item in entries if item.options.get(CONF_ENABLE_NOTIFICATIONS, False)), None)
+        if entry is None:
+            raise HomeAssistantError("Enable notifications in Chastify integration options first")
+        options = entry.options
+        mobile = options.get(CONF_NOTIFY_DAILY, False) or options.get(CONF_NOTIFY_COMPLETION, False)
+        persistent = options.get(CONF_NOTIFY_HA_DAILY, False) or options.get(CONF_NOTIFY_HA_COMPLETION, False)
+        if not mobile and not persistent:
+            raise HomeAssistantError("Enable at least one test destination in Chastify notification options")
+        title = "Chastify test notification"
+        message = "This is a test notification. Your Chastify notification delivery is configured."
+        if mobile:
+            service = str(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
+            if not re.fullmatch(r"notify\.[a-z0-9_]+", service):
+                raise HomeAssistantError("Select a valid mobile notification service in Chastify options")
+            await hass.services.async_call("notify", service.split(".", 1)[1], {"title": title, "message": message}, blocking=True)
+        if persistent:
+            await hass.services.async_call("persistent_notification", "create", {"title": title, "message": message, "notification_id": f"chastify_test_{entry.entry_id}"}, blocking=True)
+
+    if not hass.services.has_service(DOMAIN, "test_notification"):
+        hass.services.async_register(DOMAIN, "test_notification", test_notification, schema=vol.Schema({}))
     if card_file.is_file():
         await hass.http.async_register_static_paths([StaticPathConfig("/chastify/chastify-card.js", str(card_file), cache_headers=False)])
         frontend.add_extra_js_url(hass, "/chastify/chastify-card.js")

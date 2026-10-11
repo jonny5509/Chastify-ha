@@ -9,7 +9,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api import ChastifyApiError
-from .const import DOMAIN
+from .const import (
+    DOMAIN, CONF_DAILY_TITLE, CONF_DAILY_MESSAGE,
+    CONF_COMPLETION_TITLE, CONF_COMPLETION_MESSAGE,
+)
+from .notifications import format_notification_template
 from .coordinator import ChastifyCoordinator
 
 FREEZE_BUTTON_DURATION_SECONDS = 3600
@@ -257,6 +261,7 @@ class TestNotificationButton(ButtonEntity):
     _attr_has_entity_name = True
 
     def __init__(self, entry: ConfigEntry) -> None:
+        self._entry = entry
         self._entry_id = entry.entry_id
         self._attr_device_info = {
             "identifiers": {(DOMAIN, f"{entry.entry_id}_my_lock")},
@@ -277,14 +282,16 @@ class TestDailyNotificationButton(TestNotificationButton):
         self._attr_unique_id = f"{entry.entry_id}_test_daily_notification"
 
     async def async_press(self) -> None:
+        options = self._entry.options
+        values = {"days": 3, "day_word": "days"}
+        title = format_notification_template(options.get(CONF_DAILY_TITLE, "Daily congratulations"), **values)
+        message = "TEST PREVIEW — " + format_notification_template(
+            options.get(CONF_DAILY_MESSAGE, "🎉 Congratulations! You have completed {days} {day_word} of your Chastify session. Keep it going!"),
+            **values,
+        )
         await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": "🎉 Chastify daily notification test",
-                "message": "Test successful! This is an example of the daily congratulations notification. Your session and notification schedule have not been changed.",
-                "notification_id": f"chastify_{self._entry_id}_test_daily",
-            },
+            "persistent_notification", "create",
+            {"title": title, "message": message, "notification_id": f"chastify_{self._entry_id}_test_daily"},
             blocking=True,
         )
 
@@ -300,13 +307,15 @@ class TestSessionEndNotificationButton(TestNotificationButton):
         self._attr_unique_id = f"{entry.entry_id}_test_session_end_notification"
 
     async def async_press(self) -> None:
+        options = self._entry.options
+        values = {"days": 3, "day_word": "days"}
+        title = format_notification_template(options.get(CONF_COMPLETION_TITLE, "Session completed"), **values)
+        message = "TEST PREVIEW — " + format_notification_template(
+            options.get(CONF_COMPLETION_MESSAGE, "🏆 Congratulations! Your Chastify session has ended after {days} {day_word}. Well done!"),
+            **values,
+        )
         await self.hass.services.async_call(
-            "persistent_notification",
-            "create",
-            {
-                "title": "🎉 Chastify session-end notification test",
-                "message": "Test successful! This is an example of the session-end congratulations notification. Your session and notification schedule have not been changed.",
-                "notification_id": f"chastify_{self._entry_id}_test_session_end",
-            },
+            "persistent_notification", "create",
+            {"title": title, "message": message, "notification_id": f"chastify_{self._entry_id}_test_session_end"},
             blocking=True,
         )

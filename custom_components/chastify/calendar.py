@@ -35,8 +35,8 @@ async def async_setup_entry(
 class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
     """Expose active sessions and retain completed sessions in local HA storage."""
 
-    _attr_has_entity_name = False
-    _attr_name = "Chastify Session Calendar"
+    _attr_has_entity_name = True
+    _attr_name = "Session Calendar"
     _attr_icon = "mdi:calendar-clock"
 
     def __init__(self, coordinator: ChastifyCoordinator, entry: ConfigEntry) -> None:

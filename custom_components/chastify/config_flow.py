@@ -7,6 +7,10 @@ from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoAct
 from .const import (
     CONF_DAILY_NOTIFICATIONS,
     CONF_END_NOTIFICATIONS,
+    CONF_DAILY_TITLE,
+    CONF_DAILY_MESSAGE,
+    CONF_COMPLETION_TITLE,
+    CONF_COMPLETION_MESSAGE,
     CONF_TOKEN,
     DOMAIN,
 )
@@ -114,6 +118,10 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
                         CONF_END_NOTIFICATIONS,
                         default=options.get(CONF_END_NOTIFICATIONS, True),
                     ): bool,
+                    vol.Optional(CONF_DAILY_TITLE, default=options.get(CONF_DAILY_TITLE, "Daily congratulations")): str,
+                    vol.Optional(CONF_DAILY_MESSAGE, default=options.get(CONF_DAILY_MESSAGE, "🎉 Congratulations! You have completed {days} {day_word} of your Chastify session. Keep it going!")): str,
+                    vol.Optional(CONF_COMPLETION_TITLE, default=options.get(CONF_COMPLETION_TITLE, "Session completed")): str,
+                    vol.Optional(CONF_COMPLETION_MESSAGE, default=options.get(CONF_COMPLETION_MESSAGE, "🏆 Congratulations! Your Chastify session has ended after {days} {day_word}. Well done!")): str,
                 }
             ),
         )

@@ -43,6 +43,8 @@ async def async_setup_entry(
         "Subtract 1 hour",
         "Freeze",
         "Unfreeze",
+        "Test daily congratulations",
+        "Test session-end congratulations",
     }
     for entity in list(registry.entities.values()):
         if entity.config_entry_id == entry.entry_id and entity.domain == "button":
@@ -61,6 +63,8 @@ async def async_setup_entry(
             SubtractOneHourButton(coordinator, entry),
             FreezeButton(coordinator, entry),
             UnfreezeButton(coordinator, entry),
+            TestDailyNotificationButton(entry),
+            TestSessionEndNotificationButton(entry),
         ]
     )
 
@@ -244,3 +248,65 @@ class ClearCalendarHistoryButton(ChastifyButton):
         if calendar is None:
             raise HomeAssistantError("Chastify calendar is not available")
         await calendar.async_clear_history()
+
+
+
+class TestNotificationButton(ButtonEntity):
+    """Send a sample Chastify congratulations notification without changing session state."""
+
+    _attr_has_entity_name = True
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        self._entry_id = entry.entry_id
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, f"{entry.entry_id}_my_lock")},
+            "name": "Session",
+            "manufacturer": "Chastify",
+            "model": "Chastify Lock",
+        }
+
+
+class TestDailyNotificationButton(TestNotificationButton):
+    """Test the daily congratulations notification."""
+
+    _attr_name = "Test daily congratulations"
+    _attr_icon = "mdi:party-popper"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_test_daily_notification"
+
+    async def async_press(self) -> None:
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "🎉 Chastify daily notification test",
+                "message": "Test successful! This is an example of the daily congratulations notification. Your session and notification schedule have not been changed.",
+                "notification_id": f"chastify_{self._entry_id}_test_daily",
+            },
+            blocking=True,
+        )
+
+
+class TestSessionEndNotificationButton(TestNotificationButton):
+    """Test the session-end congratulations notification."""
+
+    _attr_name = "Test session-end congratulations"
+    _attr_icon = "mdi:party-popper"
+
+    def __init__(self, entry: ConfigEntry) -> None:
+        super().__init__(entry)
+        self._attr_unique_id = f"{entry.entry_id}_test_session_end_notification"
+
+    async def async_press(self) -> None:
+        await self.hass.services.async_call(
+            "persistent_notification",
+            "create",
+            {
+                "title": "🎉 Chastify session-end notification test",
+                "message": "Test successful! This is an example of the session-end congratulations notification. Your session and notification schedule have not been changed.",
+                "notification_id": f"chastify_{self._entry_id}_test_session_end",
+            },
+            blocking=True,
+        )

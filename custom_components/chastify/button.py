@@ -285,7 +285,7 @@ class TestDailyNotificationButton(TestNotificationButton):
         options = self._entry.options
         values = {"days": 3, "day_word": "days"}
         title = format_notification_template(options.get(CONF_DAILY_TITLE, "Daily congratulations"), **values)
-        message = "TEST PREVIEW — " + format_notification_template(
+        message = format_notification_template(
             options.get(CONF_DAILY_MESSAGE, "🎉 Congratulations! You have completed {days} {day_word} of your Chastify session. Keep it going!"),
             **values,
         )

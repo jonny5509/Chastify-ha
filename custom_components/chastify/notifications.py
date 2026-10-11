@@ -89,7 +89,7 @@ class ChastifySessionNotifications:
         session = field(data, "lockData") if isinstance(data.get("lockData"), dict) else data
         if not isinstance(session, dict):
             session = {}
-        active = bool(data) and not bool(field(data, "isEnded"))
+        active = bool(data)  # The API returns an empty object when no active session exists.
         now = datetime.now(timezone.utc).timestamp()
         start_value = field(data, "startDate") or field(data, "start_date") or field(data, "startedAt") or field(data, "startTimestamp")
         start = _timestamp(start_value)

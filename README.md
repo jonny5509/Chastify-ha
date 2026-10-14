@@ -36,23 +36,26 @@ Chastify brings session status, lock information, countdowns, supported lock act
 
 ### HACS
 
+[Open Chastify in HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=jonny5509&repository=Chastify-ha&category=integration).
+
+If Chastify is not yet available in the default HACS catalogue, add it as a custom repository:
+
 1. Open **HACS → Integrations**.
-2. Search for **Chastify** and select **Download**.
-3. Restart Home Assistant.
-4. Open **Settings → Devices & services**.
-5. Select **Add Integration**.
-6. Search for **Chastify** and complete setup.
+2. Open the three-dot menu and select **Custom repositories**.
+3. Add `https://github.com/jonny5509/Chastify-ha` and choose **Integration** as the category.
+4. Add the repository, find **Chastify**, and download it.
+5. Restart Home Assistant.
+6. Open **Settings → Devices & services → Add integration**.
+7. Search for **Chastify** and complete setup.
 
-If it is not yet listed in HACS, add this repository as a custom repository:
-
-`https://github.com/jonny5509/Chastify-ha`
+After Chastify is accepted into the default HACS catalogue, steps 2–4 will no longer be necessary.
 
 ### Manual installation
 
 1. Download or clone this repository.
 2. Copy `custom_components/chastify` to your Home Assistant `config/custom_components/` directory.
 3. Restart Home Assistant.
-4. Open **Settings → Devices & services → Add Integration**.
+4. Open **Settings → Devices & services → Add integration**.
 5. Search for **Chastify** and complete setup.
 
 ## ⚙️ Configuration
@@ -171,7 +174,7 @@ Important components include:
 - `services.yaml`
 - `www/chastify-card.js`
 
-GitHub Actions run Home Assistant Hassfest validation.
+GitHub Actions validate the integration with HACS and Home Assistant Hassfest and run the integration test suite. HACS validation also runs on a daily schedule and can be triggered manually from the Actions tab.
 
 ## 🔄 Updating
 
@@ -190,5 +193,8 @@ This project is licensed under the [MIT License](LICENSE).
 
 - [Repository](https://github.com/jonny5509/Chastify-ha)
 - [Issues](https://github.com/jonny5509/Chastify-ha/issues)
+- [Latest release](https://github.com/jonny5509/Chastify-ha/releases/latest)
+- [HACS publisher requirements](https://www.hacs.dev/docs/publish/start/)
+- [Submit to the HACS default catalogue](https://www.hacs.dev/docs/publish/include/)
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jonny5509)

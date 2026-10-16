@@ -25,6 +25,7 @@ ATTR_COLOR = "color"
 ATTR_COMMAND = "command"
 
 CONF_ENABLE_NOTIFICATIONS = "enable_notifications"
+CONF_NOTIFICATION_DESTINATION = "notification_destination"
 CONF_NOTIFICATION_SERVICE = "notification_service"
 CONF_NOTIFICATION_TARGETS = "notification_targets"
 CONF_NOTIFY_DAILY = "notify_daily"

@@ -104,7 +104,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             seconds = interval.total_seconds() if isinstance(interval, timedelta) else 60
             end = now + timedelta(seconds=max(60, seconds))
 
-        title = "Chastify — Active session"
+        title = str(field(data, "lockTitle") or field(data, "title") or "Chastify session")
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description_lines = ["Chastify session"]
         if lock_type:

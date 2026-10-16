@@ -316,3 +316,11 @@ def test_calendar_derives_original_start_from_elapsed_lock_duration() -> None:
     assert start == datetime(2026, 10, 14, 11, 30, tzinfo=timezone.utc)
     assert end == fetched_at + timedelta(hours=1)
 
+def test_calendar_parses_string_unix_timestamps() -> None:
+    seconds = _parse_datetime("1791633600")
+    milliseconds = _parse_datetime("1791633600000")
+
+    expected = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    assert seconds == expected
+    assert milliseconds == expected
+

@@ -285,3 +285,34 @@ def test_calendar_returns_saved_completed_sessions_in_requested_range(hass, monk
     assert events[0].uid == "completed-session"
     assert events[0].start == start
     assert events[0].end == end
+
+def test_calendar_uses_original_session_started_at_timestamp() -> None:
+    fetched_at = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
+    original_start = datetime(2026, 10, 14, 21, 30, tzinfo=timezone.utc)
+    data = {
+        "lockData": {
+            "sessionStartedAt": original_start.isoformat(),
+            "timeRemainingSeconds": 3600,
+        }
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == original_start
+    assert end == fetched_at + timedelta(hours=1)
+
+
+def test_calendar_derives_original_start_from_elapsed_lock_duration() -> None:
+    fetched_at = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
+    data = {
+        "lockData": {
+            "timeLockedSeconds": 2 * 24 * 60 * 60 + 30 * 60,
+            "timeRemainingSeconds": 3600,
+        }
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == datetime(2026, 10, 13, 11, 30, tzinfo=timezone.utc)
+    assert end == fetched_at + timedelta(hours=1)
+

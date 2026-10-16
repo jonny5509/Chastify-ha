@@ -37,6 +37,7 @@ from .const import (
     CONF_TOKEN,
     CONF_ENABLE_NOTIFICATIONS,
     CONF_NOTIFICATION_SERVICE,
+    CONF_NOTIFICATION_TARGETS,
     CONF_NOTIFY_DAILY,
     CONF_NOTIFY_COMPLETION,
     CONF_NOTIFY_HA_DAILY,
@@ -96,10 +97,19 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
         title = "Chastify test notification"
         message = "This is a test notification. Your Chastify notification delivery is configured."
         if mobile:
-            service = str(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
-            if not re.fullmatch(r"notify\.[a-z0-9_]+", service):
-                raise HomeAssistantError("Select a valid mobile notification service in Chastify options")
-            await hass.services.async_call("notify", service.split(".", 1)[1], {"title": title, "message": message}, blocking=True)
+            targets = options.get(CONF_NOTIFICATION_TARGETS)
+            if targets is None:
+                targets = [options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)]
+            if isinstance(targets, str):
+                targets = [targets]
+            valid_targets = [
+                target for target in targets
+                if isinstance(target, str) and re.fullmatch(r"notify\\.mobile_app_[a-z0-9_]+", target)
+            ]
+            if not valid_targets:
+                raise HomeAssistantError("Select at least one Home Assistant mobile app target in Chastify options")
+            for target in valid_targets:
+                await hass.services.async_call("notify", target.split(".", 1)[1], {"title": title, "message": message}, blocking=True)
         if persistent:
             await hass.services.async_call("persistent_notification", "create", {"title": title, "message": message, "notification_id": f"chastify_test_{entry.entry_id}"}, blocking=True)
 

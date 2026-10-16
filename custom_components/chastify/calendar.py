@@ -106,7 +106,8 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             end = now + timedelta(seconds=max(60, seconds))
 
         started_at = as_local(start).strftime("%H:%M")
-        title = f"Chastify — Active session — started {started_at}"
+        session_day = max(1, int((now - start.astimezone(timezone.utc)).total_seconds() // 86400) + 1)
+        title = f"Chastify — Active session — Day {session_day} — started {started_at}"
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description_lines = ["Chastify session"]
         if lock_type:

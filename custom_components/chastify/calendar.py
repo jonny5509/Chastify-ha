@@ -394,6 +394,16 @@ def _parse_datetime(value: Any) -> datetime | None:
             return None
     if isinstance(value, str):
         text = value.strip()
+        # Some API versions serialize Unix timestamps as strings rather than
+        # JSON numbers. Accept both seconds and milliseconds before ISO parsing.
+        if text.isdigit():
+            try:
+                timestamp = float(text)
+                if timestamp > 10_000_000_000:
+                    timestamp /= 1000
+                return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            except (ValueError, OverflowError, OSError):
+                return None
         if text.endswith("Z"):
             text = text[:-1] + "+00:00"
         try:

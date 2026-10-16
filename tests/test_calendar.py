@@ -240,3 +240,49 @@ def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch)
     assert event.summary == "Chastify — Active session"
     assert "Lock type: Device lock" in event.description
     assert "Session role: wearer" in event.description
+
+
+
+def test_calendar_returns_saved_completed_sessions_in_requested_range(hass, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import custom_components.chastify.calendar as calendar_module
+
+    class FakeStore:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+    monkeypatch.setattr(calendar_module, "Store", FakeStore)
+    coordinator = MagicMock()
+    coordinator.hass = hass
+    coordinator.data = {}
+    coordinator.async_add_listener.return_value = lambda: None
+    entity = calendar_module.ChastifyCalendar(
+        coordinator, SimpleNamespace(entry_id="calendar-history-test")
+    )
+    start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    end = start + timedelta(hours=2)
+    entity._history = [
+        {
+            "uid": "completed-session",
+            "summary": "Chastify — Active session",
+            "description": "Saved locally",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "active": False,
+        }
+    ]
+
+    events = asyncio.run(
+        entity.async_get_events(
+            hass,
+            start - timedelta(days=1),
+            end + timedelta(days=1),
+        )
+    )
+
+    assert len(events) == 1
+    assert events[0].uid == "completed-session"
+    assert events[0].start == start
+    assert events[0].end == end

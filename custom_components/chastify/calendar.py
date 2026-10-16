@@ -12,6 +12,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util.dt import as_local
 
 from .const import DOMAIN
 from .coordinator import ChastifyCoordinator, field
@@ -104,7 +105,8 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             seconds = interval.total_seconds() if isinstance(interval, timedelta) else 60
             end = now + timedelta(seconds=max(60, seconds))
 
-        title = "Chastify — Active session"
+        started_at = as_local(start).strftime("%H:%M")
+        title = f"Chastify — Active session — started {started_at}"
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description_lines = ["Chastify session"]
         if lock_type:

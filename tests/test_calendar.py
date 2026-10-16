@@ -236,7 +236,8 @@ def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch)
     event = entity.event
 
     assert event is not None
-    assert event.summary == "Chastify — Active session"
+    assert event.summary.startswith("Chastify — Active session — Day ")
+    assert event.summary.endswith(" — started 11:00")
     assert "Lock type: Device lock" in event.description
     assert "Session role: wearer" in event.description
 

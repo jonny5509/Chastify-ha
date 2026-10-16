@@ -8,8 +8,7 @@ from homeassistant.helpers import selector
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
 from .const import (
     CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_ENABLE_PHONE_NOTIFICATIONS, CONF_ENABLE_HA_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
-    CONF_NOTIFICATION_TARGETS, CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,
-    CONF_NOTIFY_HA_DAILY, CONF_NOTIFY_HA_COMPLETION,
+    CONF_NOTIFICATION_TARGETS, CONF_NOTIFICATION_DESTINATION, DEFAULT_NOTIFICATION_SERVICE,
 )
 
 
@@ -104,27 +103,28 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         options = self.config_entry.options
+        # Infer the previous destination from legacy toggles when opening options after upgrade.
+        destination = options.get(CONF_NOTIFICATION_DESTINATION)
+        if destination not in {"none", "ha", "phone", "both"}:
+            phone = options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False)
+            ha = options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)
+            destination = "both" if phone and ha else "phone" if phone else "ha" if ha else "none"
+
         notify_services = sorted(
             name for name in self.hass.services.async_services().get("notify", {})
             if name.startswith("mobile_app_")
         )
         service_options = [
-            {
-                "value": f"notify.{name}",
-                "label": name.removeprefix("mobile_app_").replace("_", " "),
-            }
+            {"value": f"notify.{name}", "label": name.removeprefix("mobile_app_").replace("_", " ")}
             for name in notify_services
         ]
-        # Preserve configured targets if service discovery is temporarily incomplete.
         saved_targets = options.get(CONF_NOTIFICATION_TARGETS)
         if saved_targets is None:
             legacy_service = str(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
             saved_targets = [legacy_service] if legacy_service.startswith("notify.mobile_app_") else []
         for target in saved_targets:
             service_name = str(target).removeprefix("notify.")
-            if service_name.startswith("mobile_app_") and all(
-                item["value"] != f"notify.{service_name}" for item in service_options
-            ):
+            if service_name.startswith("mobile_app_") and all(item["value"] != f"notify.{service_name}" for item in service_options):
                 service_options.append({
                     "value": f"notify.{service_name}",
                     "label": service_name.removeprefix("mobile_app_").replace("_", " "),
@@ -133,18 +133,19 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
-                vol.Optional(CONF_ENABLE_PHONE_NOTIFICATIONS, default=options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False)): bool,
-                vol.Optional(CONF_ENABLE_HA_NOTIFICATIONS, default=options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)): bool,
-                vol.Optional(CONF_NOTIFICATION_TARGETS, default=saved_targets): selector.SelectSelector(
+                vol.Optional(CONF_NOTIFICATION_DESTINATION, default=destination): selector.SelectSelector(
                     selector.SelectSelectorConfig(
-                        options=service_options,
-                        multiple=True,
+                        options=[
+                            {"label": "None", "value": "none"},
+                            {"label": "Home Assistant notifications", "value": "ha"},
+                            {"label": "Phone notifications", "value": "phone"},
+                            {"label": "Home Assistant and phone", "value": "both"},
+                        ],
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
-                vol.Optional(CONF_NOTIFY_HA_DAILY, default=options.get(CONF_NOTIFY_HA_DAILY, False)): bool,
-                vol.Optional(CONF_NOTIFY_HA_COMPLETION, default=options.get(CONF_NOTIFY_HA_COMPLETION, False)): bool,
-                vol.Optional(CONF_NOTIFY_DAILY, default=options.get(CONF_NOTIFY_DAILY, False)): bool,
-                vol.Optional(CONF_NOTIFY_COMPLETION, default=options.get(CONF_NOTIFY_COMPLETION, False)): bool,
+                vol.Optional(CONF_NOTIFICATION_TARGETS, default=saved_targets): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=service_options, multiple=True, mode=selector.SelectSelectorMode.DROPDOWN)
+                ),
             }),
         )

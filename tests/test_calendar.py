@@ -123,7 +123,6 @@ def test_calendar_does_not_drift_match_when_start_is_explicit() -> None:
     assert _matching_active_record(
         [record],
         original_start + timedelta(seconds=35),
-        "Session",
         allow_start_drift=False,
     ) is None
 

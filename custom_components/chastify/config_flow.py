@@ -4,10 +4,11 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.helpers import selector
+
 from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoActiveSession
 from .const import (
     CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_ENABLE_PHONE_NOTIFICATIONS, CONF_ENABLE_HA_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
-    CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,
+    CONF_NOTIFICATION_TARGETS, CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION, DEFAULT_NOTIFICATION_SERVICE,
     CONF_NOTIFY_HA_DAILY, CONF_NOTIFY_HA_COMPLETION,
 )
 
@@ -95,22 +96,49 @@ class ChastifyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class ChastifyOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         if user_input is not None:
+            # Keep the old single-service option in sync for existing automations
+            # and older versions while using the multi-target picker going forward.
+            targets = user_input.get(CONF_NOTIFICATION_TARGETS, [])
+            if targets:
+                user_input[CONF_NOTIFICATION_SERVICE] = targets[0]
             return self.async_create_entry(title="", data=user_input)
+
         options = self.config_entry.options
-        notify_services = sorted(self.hass.services.async_services().get("notify", {}))
-        if "notify" not in notify_services:
-            notify_services.insert(0, "notify")
-        service_options = [f"notify.{name}" for name in notify_services]
-        if options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE) not in service_options:
-            service_options.append(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
+        notify_services = sorted(
+            name for name in self.hass.services.async_services().get("notify", {})
+            if name.startswith("mobile_app_")
+        )
+        service_options = [
+            {
+                "value": f"notify.{name}",
+                "label": name.removeprefix("mobile_app_").replace("_", " "),
+            }
+            for name in notify_services
+        ]
+        # Preserve configured targets if service discovery is temporarily incomplete.
+        saved_targets = options.get(CONF_NOTIFICATION_TARGETS)
+        if saved_targets is None:
+            legacy_service = str(options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
+            saved_targets = [legacy_service] if legacy_service.startswith("notify.mobile_app_") else []
+        for target in saved_targets:
+            service_name = str(target).removeprefix("notify.")
+            if service_name.startswith("mobile_app_") and all(
+                item["value"] != f"notify.{service_name}" for item in service_options
+            ):
+                service_options.append({
+                    "value": f"notify.{service_name}",
+                    "label": service_name.removeprefix("mobile_app_").replace("_", " "),
+                })
+
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
                 vol.Optional(CONF_ENABLE_PHONE_NOTIFICATIONS, default=options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False)): bool,
                 vol.Optional(CONF_ENABLE_HA_NOTIFICATIONS, default=options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)): bool,
-                vol.Optional(CONF_NOTIFICATION_SERVICE, default=options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)): selector.SelectSelector(
+                vol.Optional(CONF_NOTIFICATION_TARGETS, default=saved_targets): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=service_options,
+                        multiple=True,
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),

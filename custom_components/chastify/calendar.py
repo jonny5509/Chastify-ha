@@ -120,8 +120,10 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         # Only tolerate start-time drift when the API omitted an explicit
         # start timestamp and we derived it from elapsed lock duration.
         explicit_start = _first_datetime(
-            data, ("startDate", "startAt", "startedAt",
-                   "start_date", "startTimestamp", "startDateTime")
+            data, ("startDate", "startAt", "startedAt", "startTime",
+                   "start_date", "start_time", "started_at", "startTimestamp",
+                   "startDateTime", "sessionStart", "sessionStartedAt",
+                   "session_start", "session_started_at")
         )
         prior = _matching_active_record(
             self._history,
@@ -304,8 +306,10 @@ def _session_bounds(
 ) -> tuple[datetime | None, datetime | None]:
     """Calculate event bounds while accepting the same timestamp inputs as Chaster."""
     start = _first_datetime(
-        data, ("startDate", "startAt", "startedAt",
-               "start_date", "startTimestamp", "startDateTime")
+        data, ("startDate", "startAt", "startedAt", "startTime",
+               "start_date", "start_time", "started_at", "startTimestamp",
+               "startDateTime", "sessionStart", "sessionStartedAt",
+               "session_start", "session_started_at")
     )
     end = _first_datetime(
         data, ("endDate", "endAt", "unlockDate", "unlockAt", "maxLimitDate",

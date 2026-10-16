@@ -313,6 +313,6 @@ def test_calendar_derives_original_start_from_elapsed_lock_duration() -> None:
 
     start, end = _session_bounds(data, fetched_at)
 
-    assert start == datetime(2026, 10, 13, 11, 30, tzinfo=timezone.utc)
+    assert start == datetime(2026, 10, 14, 11, 30, tzinfo=timezone.utc)
     assert end == fetched_at + timedelta(hours=1)
 

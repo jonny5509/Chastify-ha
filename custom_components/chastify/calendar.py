@@ -123,12 +123,12 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             data, ("startDate", "startAt", "startedAt",
                    "start_date", "startTimestamp", "startDateTime")
         )
-        prior = (
-            _matching_active_record(self._history, start, title)
-            if explicit_start is None
-            else None
+        prior = _matching_active_record(
+            self._history,
+            start,
+            allow_start_drift=explicit_start is None,
         )
-        uid = _session_uid(self.unique_id, start, title)
+        uid = _session_uid(self.unique_id, start)
         if prior is not None:
             prior_start = _parse_datetime(prior.get("start"))
             if prior_start is not None:
@@ -271,30 +271,30 @@ async def _save_history_snapshot(store: Store, snapshot: dict[str, Any], previou
         _LOGGER.exception("Unable to save Chastify calendar history")
 
 
-def _session_uid(unique_id: str, start: datetime, title: str) -> str:
-    """Create a stable identifier for one session's history record."""
-    return f"{unique_id}:{start.astimezone(timezone.utc).isoformat()}:{title}"
+def _session_uid(unique_id: str, start: datetime) -> str:
+    """Create a stable identifier independent of the display title."""
+    return f"{unique_id}:{start.astimezone(timezone.utc).isoformat()}"
 
 
 def _matching_active_record(
     history: list[dict[str, Any]],
     start: datetime,
-    title: str,
     *,
     allow_start_drift: bool = True,
 ) -> dict[str, Any] | None:
-    """Find the closest active record, optionally tolerating inferred-start drift."""
+    """Find the active record for this session, even if its display title changed."""
     candidates: list[tuple[float, dict[str, Any]]] = []
     start_utc = start.astimezone(timezone.utc)
     for item in history:
-        if not item.get("active") or item.get("summary") != title:
+        if not item.get("active"):
             continue
         prior_start = _parse_datetime(item.get("start"))
         if prior_start is None:
             continue
         delta = abs((start_utc - prior_start.astimezone(timezone.utc)).total_seconds())
-        # Keep this narrow: avoid accidentally combining separate sessions.
-        if allow_start_drift and delta <= 90:
+        # Use exact starts when supplied by the API; tolerate small drift only
+        # when the start was inferred from elapsed duration.
+        if (allow_start_drift and delta <= 90) or (not allow_start_drift and delta < 1):
             candidates.append((delta, item))
     return min(candidates, key=lambda candidate: candidate[0])[1] if candidates else None
 

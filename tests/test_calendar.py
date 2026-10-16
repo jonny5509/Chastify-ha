@@ -74,7 +74,7 @@ def test_calendar_reuses_active_history_identity_when_derived_start_drifts() -> 
     }
 
     match = _matching_active_record(
-        [record], original_start + timedelta(seconds=35), "Session"
+        [record], original_start + timedelta(seconds=35), allow_start_drift=True
     )
 
     assert match is record
@@ -92,22 +92,19 @@ def test_calendar_does_not_match_different_title_or_large_start_drift() -> None:
     }
 
     assert _matching_active_record(
-        [record], original_start + timedelta(seconds=35), "Other"
-    ) is None
-    assert _matching_active_record(
-        [record], original_start + timedelta(seconds=120), "Session"
+        [record], original_start + timedelta(seconds=120), allow_start_drift=True
     ) is None
 
 
 def test_session_history_uid_is_stable_for_same_session() -> None:
     start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 
-    first = _session_uid("entry_session_calendar", start, "Session")
-    second = _session_uid("entry_session_calendar", start, "Session")
+    first = _session_uid("entry_session_calendar", start)
+    second = _session_uid("entry_session_calendar", start)
 
     assert first == second
     assert first != _session_uid(
-        "entry_session_calendar", start + timedelta(seconds=1), "Session"
+        "entry_session_calendar", start + timedelta(seconds=1)
     )
 
 
@@ -126,7 +123,6 @@ def test_calendar_does_not_drift_match_when_start_is_explicit() -> None:
     assert _matching_active_record(
         [record],
         original_start + timedelta(seconds=35),
-        "Session",
         allow_start_drift=False,
     ) is None
 
@@ -240,6 +236,83 @@ def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch)
     event = entity.event
 
     assert event is not None
-    assert event.summary == "Chastify session"
+    assert event.summary == "Chastify — Active session"
     assert "Lock type: Device lock" in event.description
     assert "Session role: wearer" in event.description
+
+
+
+def test_calendar_returns_saved_completed_sessions_in_requested_range(hass, monkeypatch) -> None:
+    from types import SimpleNamespace
+    from unittest.mock import MagicMock
+
+    import custom_components.chastify.calendar as calendar_module
+
+    class FakeStore:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+    monkeypatch.setattr(calendar_module, "Store", FakeStore)
+    coordinator = MagicMock()
+    coordinator.hass = hass
+    coordinator.data = {}
+    coordinator.async_add_listener.return_value = lambda: None
+    entity = calendar_module.ChastifyCalendar(
+        coordinator, SimpleNamespace(entry_id="calendar-history-test")
+    )
+    start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
+    end = start + timedelta(hours=2)
+    entity._history = [
+        {
+            "uid": "completed-session",
+            "summary": "Chastify — Active session",
+            "description": "Saved locally",
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "active": False,
+        }
+    ]
+
+    events = asyncio.run(
+        entity.async_get_events(
+            hass,
+            start - timedelta(days=1),
+            end + timedelta(days=1),
+        )
+    )
+
+    assert len(events) == 1
+    assert events[0].uid == "completed-session"
+    assert events[0].start == start
+    assert events[0].end == end
+
+def test_calendar_uses_original_session_started_at_timestamp() -> None:
+    fetched_at = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
+    original_start = datetime(2026, 10, 14, 21, 30, tzinfo=timezone.utc)
+    data = {
+        "lockData": {
+            "sessionStartedAt": original_start.isoformat(),
+            "timeRemainingSeconds": 3600,
+        }
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == original_start
+    assert end == fetched_at + timedelta(hours=1)
+
+
+def test_calendar_derives_original_start_from_elapsed_lock_duration() -> None:
+    fetched_at = datetime(2026, 10, 16, 12, 0, tzinfo=timezone.utc)
+    data = {
+        "lockData": {
+            "timeLockedSeconds": 2 * 24 * 60 * 60 + 30 * 60,
+            "timeRemainingSeconds": 3600,
+        }
+    }
+
+    start, end = _session_bounds(data, fetched_at)
+
+    assert start == datetime(2026, 10, 14, 11, 30, tzinfo=timezone.utc)
+    assert end == fetched_at + timedelta(hours=1)
+

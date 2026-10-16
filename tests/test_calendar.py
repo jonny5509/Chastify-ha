@@ -74,7 +74,7 @@ def test_calendar_reuses_active_history_identity_when_derived_start_drifts() -> 
     }
 
     match = _matching_active_record(
-        [record], original_start + timedelta(seconds=35), "Session"
+        [record], original_start + timedelta(seconds=35), allow_start_drift=True
     )
 
     assert match is record
@@ -92,22 +92,19 @@ def test_calendar_does_not_match_different_title_or_large_start_drift() -> None:
     }
 
     assert _matching_active_record(
-        [record], original_start + timedelta(seconds=35), "Other"
-    ) is None
-    assert _matching_active_record(
-        [record], original_start + timedelta(seconds=120), "Session"
+        [record], original_start + timedelta(seconds=120), allow_start_drift=True
     ) is None
 
 
 def test_session_history_uid_is_stable_for_same_session() -> None:
     start = datetime(2026, 10, 10, 12, 0, tzinfo=timezone.utc)
 
-    first = _session_uid("entry_session_calendar", start, "Session")
-    second = _session_uid("entry_session_calendar", start, "Session")
+    first = _session_uid("entry_session_calendar", start)
+    second = _session_uid("entry_session_calendar", start)
 
     assert first == second
     assert first != _session_uid(
-        "entry_session_calendar", start + timedelta(seconds=1), "Session"
+        "entry_session_calendar", start + timedelta(seconds=1)
     )
 
 
@@ -240,6 +237,6 @@ def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch)
     event = entity.event
 
     assert event is not None
-    assert event.summary == "Chastify session"
+    assert event.summary == "Chastify — Active session"
     assert "Lock type: Device lock" in event.description
     assert "Session role: wearer" in event.description

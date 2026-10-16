@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import logging
 import re
 from typing import Any
@@ -11,15 +11,13 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.event import async_track_time_interval
-from datetime import timedelta
 
 from .coordinator import field
-
 from .const import (
-    CONF_ENABLE_NOTIFICATIONS,
     CONF_ENABLE_PHONE_NOTIFICATIONS,
     CONF_ENABLE_HA_NOTIFICATIONS,
     CONF_NOTIFICATION_SERVICE,
+    CONF_NOTIFICATION_TARGETS,
     CONF_NOTIFY_DAILY,
     CONF_NOTIFY_COMPLETION,
     CONF_NOTIFY_HA_DAILY,
@@ -60,14 +58,27 @@ class ChastifySessionNotifications:
         self.entry = entry
         self.coordinator = coordinator
         self.store = Store(hass, 1, f"{DOMAIN}_session_notifications_{entry.entry_id}")
-        self.state: dict[str, Any] = {}
-        service = str(entry.options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE))
-        self.service = service.split(".", 1)[1] if re.fullmatch(r"notify\.[a-z0-9_]+", service) else "notify"
+
+    def _notification_targets(self) -> list[str]:
+        """Return selected phone targets, supporting the legacy single target."""
+        options = self.entry.options
+        targets = options.get(CONF_NOTIFICATION_TARGETS)
+        if targets is None:
+            targets = [options.get(CONF_NOTIFICATION_SERVICE, DEFAULT_NOTIFICATION_SERVICE)]
+        if isinstance(targets, str):
+            targets = [targets]
+        return [
+            target.split(".", 1)[1]
+            for target in targets
+            if isinstance(target, str) and re.fullmatch(r"notify\.mobile_app_[a-z0-9_]+", target)
+        ]
 
     async def async_start(self) -> None:
         saved = await self.store.async_load()
         if isinstance(saved, dict):
             self.state = saved
+        else:
+            self.state = {}
         self.entry.async_on_unload(
             async_track_time_interval(self.hass, self._tick, _CHECK_INTERVAL)
         )
@@ -77,18 +88,19 @@ class ChastifySessionNotifications:
         await self.async_check()
 
     async def _notify(self, title: str, message: str, event: str) -> bool:
-        """Send to the selected mobile service and/or Home Assistant."""
+        """Send to selected mobile app targets and/or Home Assistant."""
         mobile_key = CONF_NOTIFY_DAILY if event == "daily" else CONF_NOTIFY_COMPLETION
         ha_key = CONF_NOTIFY_HA_DAILY if event == "daily" else CONF_NOTIFY_HA_COMPLETION
         delivered = False
         if self.entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) and self.entry.options.get(mobile_key, False):
-            try:
-                await self.hass.services.async_call(
-                    "notify", self.service, {"title": title, "message": message}, blocking=True
-                )
-                delivered = True
-            except Exception:
-                _LOGGER.exception("Unable to send Chastify mobile notification through notify.%s", self.service)
+            for service in self._notification_targets():
+                try:
+                    await self.hass.services.async_call(
+                        "notify", service, {"title": title, "message": message}, blocking=True
+                    )
+                    delivered = True
+                except Exception:
+                    _LOGGER.exception("Unable to send Chastify mobile notification through notify.%s", service)
         if self.entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False) and self.entry.options.get(ha_key, False):
             try:
                 await self.hass.services.async_call(
@@ -108,7 +120,7 @@ class ChastifySessionNotifications:
         session = field(data, "lockData") if isinstance(data.get("lockData"), dict) else data
         if not isinstance(session, dict):
             session = {}
-        active = bool(data)  # The API returns an empty object when no active session exists.
+        active = bool(data)
         now = datetime.now(timezone.utc).timestamp()
         start_value = field(data, "startDate") or field(data, "start_date") or field(data, "startedAt") or field(data, "startTimestamp")
         start = _timestamp(start_value)
@@ -128,22 +140,20 @@ class ChastifySessionNotifications:
                 self.state["active_seen"] = True
                 self.state["start"] = start
                 changed = True
-            # A changed start timestamp means a new session; reset milestone state.
             if self.state.get("start") != start:
                 self.state.update({"start": start, "last_daily_day": 0, "completion_notified": False})
                 changed = True
             elapsed_days = int(max(0, now - start) // 86400)
             if ((self.entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) and self.entry.options.get(CONF_NOTIFY_DAILY, False)) or (self.entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False) and self.entry.options.get(CONF_NOTIFY_HA_DAILY, False))) and elapsed_days >= 1 and elapsed_days > int(self.state.get("last_daily_day", 0)):
-                if await self._notify("chastify 24-hour reminder", f"{name}: {elapsed_days} day(s) since the session started.", "daily"):
+                if await self._notify("Chastify daily congratulations", f"🎉 Congratulations! You've completed day number {elapsed_days} of your Chastify session. Keep it going!", "daily"):
                     self.state["last_daily_day"] = elapsed_days
                     changed = True
         elif not active and self.state.get("active_seen") and not self.state.get("completion_notified"):
             if self.entry.options.get(CONF_NOTIFY_COMPLETION, False) or self.entry.options.get(CONF_NOTIFY_HA_COMPLETION, False):
-                if await self._notify("chastify session ended", f"{name} has ended.", "completion"):
+                if await self._notify("Chastify session completed", f"🎉 Congratulations! Your {name} has been completed.", "completion"):
                     self.state["completion_notified"] = True
                     changed = True
             else:
-                # Do not send a delayed completion alert if the option is enabled later.
                 self.state["completion_notified"] = True
                 changed = True
             self.state["active_seen"] = False
@@ -154,7 +164,7 @@ class ChastifySessionNotifications:
 
 
 async def async_setup_notifications(hass: HomeAssistant, entry: ConfigEntry, coordinator) -> None:
-    """Start notifications only after the master opt-in is enabled."""
+    """Start notifications only after a notification destination is enabled."""
     if not (entry.options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False) or entry.options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)):
         return
     await ChastifySessionNotifications(hass, entry, coordinator).async_start()

@@ -342,8 +342,9 @@ def test_active_session_is_split_into_daily_events() -> None:
         "Chastify — Active session",
         "Chastify — Active session",
     ]
-    assert events[0].start == start
-    assert events[0].end == datetime(2026, 1, 2, 0, 0, tzinfo=timezone.utc)
-    assert events[-1].start == datetime(2026, 1, 4, 0, 0, tzinfo=timezone.utc)
-    assert events[-1].end == end
+    # Active session entries are all-day events using exclusive end dates.
+    assert events[0].start.isoformat() == "2026-01-01"
+    assert events[0].end.isoformat() == "2026-01-02"
+    assert events[-1].start.isoformat() == "2026-01-04"
+    assert events[-1].end.isoformat() == "2026-01-05"
     assert len({event.uid for event in events}) == 4

@@ -153,8 +153,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         if current is None:
             return None
         local_start = as_local(current.start)
-        local_today = as_local(datetime.now(timezone.utc)).date()
-        event_day = max(local_start.date(), local_today)
+        event_day = local_start.date()
         summary = (
             current.summary
             if event_day == local_start.date()

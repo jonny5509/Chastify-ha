@@ -236,7 +236,7 @@ def test_calendar_entity_event_includes_lock_and_role_context(hass, monkeypatch)
     event = entity.event
 
     assert event is not None
-    assert event.summary.startswith("Chastify — Active session — Day ")
+    assert event.summary == "Chastify — Active session — started 11:00"
     assert event.summary.endswith(" — started 11:00")
     assert "Lock type: Device lock" in event.description
     assert "Session role: wearer" in event.description
@@ -325,3 +325,25 @@ def test_calendar_parses_string_unix_timestamps() -> None:
     assert seconds == expected
     assert milliseconds == expected
 
+
+
+def test_active_session_is_split_into_daily_events() -> None:
+    from custom_components.chastify.calendar import _active_daily_events
+
+    start = datetime(2026, 1, 1, 13, 38, tzinfo=timezone.utc)
+    end = datetime(2026, 1, 4, 10, 0, tzinfo=timezone.utc)
+
+    events = _active_daily_events("active-session", start, end, "Session details")
+
+    assert len(events) == 4
+    assert [event.summary for event in events] == [
+        "Chastify — Active session — started 13:38",
+        "Chastify — Active session",
+        "Chastify — Active session",
+        "Chastify — Active session",
+    ]
+    assert events[0].start == start
+    assert events[0].end == datetime(2026, 1, 2, 0, 0, tzinfo=timezone.utc)
+    assert events[-1].start == datetime(2026, 1, 4, 0, 0, tzinfo=timezone.utc)
+    assert events[-1].end == end
+    assert len({event.uid for event in events}) == 4

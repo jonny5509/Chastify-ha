@@ -77,8 +77,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             await self._history_save_task
         await super().async_will_remove_from_hass()
 
-    @property
-    def event(self) -> CalendarEvent | None:
+    def _current_timed_event(self) -> CalendarEvent | None:
         """Return the current session event, if a valid session is active."""
         data = self.coordinator.data or {}
         if not data:
@@ -147,6 +146,27 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             uid=uid,
         )
 
+    @property
+    def event(self) -> CalendarEvent | None:
+        """Expose the current session as an all-day event for the local day."""
+        current = self._current_timed_event()
+        if current is None:
+            return None
+        local_start = as_local(current.start)
+        event_day = local_start.date()
+        summary = (
+            current.summary
+            if event_day == local_start.date()
+            else "Chastify — Active session"
+        )
+        return CalendarEvent(
+            summary=summary,
+            start=event_day,
+            end=event_day + timedelta(days=1),
+            description=current.description,
+            uid=f"{current.uid}:{event_day.isoformat()}",
+        )
+
     def _handle_coordinator_update(self) -> None:
         """Update persisted history whenever the API snapshot changes."""
         self._record_current_snapshot()
@@ -155,7 +175,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
     async def async_clear_history(self) -> None:
         """Remove completed history while preserving the currently active session."""
         self._history = []
-        if self.event is not None:
+        if self._current_timed_event() is not None:
             self._record_current_snapshot()
         else:
             self._queue_history_save()
@@ -170,7 +190,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
     def _record_current_snapshot(self) -> None:
         data = self.coordinator.data
-        event = self.event
+        event = self._current_timed_event()
         changed = False
         active_records = [item for item in self._history if item.get("active")]
 
@@ -226,7 +246,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
 
         # Make sure the latest active snapshot is represented even before the
         # coordinator's update listener has had a chance to persist it.
-        current = self.event
+        current = self._current_timed_event()
         records = list(self._history)
         if current is not None:
             current_start = _as_datetime(current.start)
@@ -291,8 +311,8 @@ def _active_daily_events(
             events.append(
                 CalendarEvent(
                     summary=title,
-                    start=segment_start,
-                    end=segment_end,
+                    start=day_start.date(),
+                    end=day_start.date() + timedelta(days=1),
                     description=description,
                     uid=f"{uid}:{day_start.date().isoformat()}",
                 )

@@ -106,8 +106,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             end = now + timedelta(seconds=max(60, seconds))
 
         started_at = as_local(start).strftime("%H:%M")
-        session_day = max(1, int((now - start.astimezone(timezone.utc)).total_seconds() // 86400) + 1)
-        title = f"Chastify — Active session — Day {session_day} — started {started_at}"
+        title = f"Chastify — Active session — started {started_at}"
         lock_type = field(data, "lockType") or field(data, "deviceType")
         description_lines = ["Chastify session"]
         if lock_type:
@@ -250,17 +249,57 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             end = _parse_datetime(item.get("end"))
             if start is None or end is None or end <= range_start or start >= range_end:
                 continue
-            events.append(
-                CalendarEvent(
-                    summary=str(item.get("summary") or "Chastify session"),
-                    start=start,
-                    end=end,
-                    description=str(item.get("description") or ""),
-                    uid=str(item["uid"]),
+            description = str(item.get("description") or "")
+            if item.get("active"):
+                events.extend(_active_daily_events(str(item["uid"]), start, end, description))
+            else:
+                events.append(
+                    CalendarEvent(
+                        summary=str(item.get("summary") or "Chastify session"),
+                        start=start,
+                        end=end,
+                        description=description,
+                        uid=str(item["uid"]),
+                    )
                 )
-            )
         return sorted(events, key=lambda item: _as_datetime(item.start) or datetime.min.replace(tzinfo=timezone.utc))
 
+
+
+def _active_daily_events(
+    uid: str, start: datetime, end: datetime, description: str
+) -> list[CalendarEvent]:
+    """Split an active session at Home Assistant local midnight."""
+    local_start = as_local(start)
+    local_end = as_local(end)
+    day_start = datetime.combine(local_start.date(), datetime.min.time(), tzinfo=local_start.tzinfo)
+    events: list[CalendarEvent] = []
+    index = 0
+    while day_start < local_end:
+        next_day = datetime.combine(
+            day_start.date() + timedelta(days=1),
+            datetime.min.time(),
+            tzinfo=day_start.tzinfo,
+        )
+        segment_start = max(start, day_start.astimezone(start.tzinfo))
+        segment_end = min(end, next_day.astimezone(end.tzinfo))
+        if segment_end > segment_start:
+            if index == 0:
+                title = f"Chastify — Active session — started {local_start.strftime('%H:%M')}"
+            else:
+                title = "Chastify — Active session"
+            events.append(
+                CalendarEvent(
+                    summary=title,
+                    start=segment_start,
+                    end=segment_end,
+                    description=description,
+                    uid=f"{uid}:{day_start.date().isoformat()}",
+                )
+            )
+            index += 1
+        day_start = next_day
+    return events
 
 
 async def _save_history_snapshot(store: Store, snapshot: dict[str, Any], previous: Any) -> None:

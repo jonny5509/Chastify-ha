@@ -131,7 +131,11 @@ class ChastifySessionNotifications:
         active = bool(data)
         now = datetime.now(timezone.utc).timestamp()
         start_value = field(data, "startDate") or field(data, "start_date") or field(data, "startedAt") or field(data, "startTimestamp")
-        start = _timestamp(start_value)
+        # Only an API-provided start timestamp is authoritative. The fallback
+        # derived from timeLockedSeconds can move slightly on every poll, so
+        # never use it to decide that an existing session is a new session.
+        authoritative_start = _timestamp(start_value)
+        start = authoritative_start
         if start is None:
             locked = field(data, "timeLockedSeconds")
             try:
@@ -148,10 +152,26 @@ class ChastifySessionNotifications:
                 self.state["active_seen"] = True
                 self.state["start"] = start
                 changed = True
-            if self.state.get("start") != start:
-                self.state.update({"start": start, "last_daily_day": 0, "completion_notified": False})
+            elif authoritative_start is not None:
+                saved_start = _timestamp(self.state.get("start"))
+                # Reset the daily milestone only when the API confirms a
+                # genuinely different session start (allowing minor rounding).
+                if saved_start is None or abs(saved_start - authoritative_start) > 60:
+                    self.state.update({
+                        "start": authoritative_start,
+                        "last_daily_day": 0,
+                        "completion_notified": False,
+                    })
+                    changed = True
+            elif self.state.get("start") is None:
+                # Seed old/missing state once; keep it stable on later polls.
+                self.state["start"] = start
                 changed = True
-            elapsed_days = int(max(0, now - start) // 86400)
+
+            session_start = _timestamp(self.state.get("start"))
+            if session_start is None:
+                return
+            elapsed_days = int(max(0, now - session_start) // 86400)
             if self._destination() != "none" and elapsed_days >= 1 and elapsed_days > int(self.state.get("last_daily_day", 0)):
                 if await self._notify("Chastify daily congratulations", f"🎉 Congratulations! You've completed day number {elapsed_days} of your Chastify session. Keep it going!", "daily"):
                     self.state["last_daily_day"] = elapsed_days

@@ -9,6 +9,7 @@ from .api import ChastifyApi, ChastifyAuthError, ChastifyApiError, ChastifyNoAct
 from .const import (
     CONF_TOKEN, DOMAIN, CONF_ENABLE_NOTIFICATIONS, CONF_ENABLE_PHONE_NOTIFICATIONS, CONF_ENABLE_HA_NOTIFICATIONS, CONF_NOTIFICATION_SERVICE,
     CONF_NOTIFICATION_TARGETS, CONF_NOTIFICATION_DESTINATION, DEFAULT_NOTIFICATION_SERVICE,
+    CONF_NOTIFY_DAILY, CONF_NOTIFY_COMPLETION,
 )
 
 
@@ -105,10 +106,12 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
         options = self.config_entry.options
         # Infer the previous destination from legacy toggles when opening options after upgrade.
         destination = options.get(CONF_NOTIFICATION_DESTINATION)
-        if destination not in {"none", "ha", "phone", "both"}:
+        if destination == "ha":
+            destination = "home_assistant"
+        if destination not in {"none", "home_assistant", "phone", "both"}:
             phone = options.get(CONF_ENABLE_PHONE_NOTIFICATIONS, False)
             ha = options.get(CONF_ENABLE_HA_NOTIFICATIONS, False)
-            destination = "both" if phone and ha else "phone" if phone else "ha" if ha else "none"
+            destination = "both" if phone and ha else "phone" if phone else "home_assistant" if ha else "none"
 
         notify_services = sorted(
             name for name in self.hass.services.async_services().get("notify", {})
@@ -133,11 +136,13 @@ class ChastifyOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema({
+                vol.Optional(CONF_NOTIFY_DAILY, default=options.get(CONF_NOTIFY_DAILY, True)): bool,
+                vol.Optional(CONF_NOTIFY_COMPLETION, default=options.get(CONF_NOTIFY_COMPLETION, True)): bool,
                 vol.Optional(CONF_NOTIFICATION_DESTINATION, default=destination): selector.SelectSelector(
                     selector.SelectSelectorConfig(
                         options=[
                             {"label": "None", "value": "none"},
-                            {"label": "Home Assistant notifications", "value": "ha"},
+                            {"label": "Home Assistant notifications", "value": "home_assistant"},
                             {"label": "Phone notifications", "value": "phone"},
                             {"label": "Home Assistant and phone", "value": "both"},
                         ],

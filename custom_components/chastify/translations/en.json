@@ -31,6 +31,8 @@
         "title": "Chastify notification settings",
         "description": "Choose where Chastify notifications are sent. Phone notifications can be delivered to multiple selected phones.",
         "data": {
+          "notify_daily": "Daily milestone notifications",
+          "notify_completion": "Session completion notifications",
           "notification_destination": "Notification destination",
           "notification_targets": "Phones to notify"
         },

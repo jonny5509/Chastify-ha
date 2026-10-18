@@ -203,7 +203,7 @@ class ChastifySessionNotifications:
                 ):
                     title = "Session milestone reached"
                     message = f"🎉 Day {elapsed_days} complete for {name}. Keep it going!"
-                    if await self._notify(title, message, f"daily_{elapsed_days}"):
+                    if await self._notify(title, message, "daily"):
                         self.state["last_daily_day"] = elapsed_days
                         changed = True
         elif not active and self.state.get("active_seen") and not self.state.get("completion_notified"):

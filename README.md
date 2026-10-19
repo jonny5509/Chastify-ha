@@ -196,3 +196,4 @@ This project is licensed under the [MIT License](LICENSE).
 - [HACS publisher requirements](https://www.hacs.dev/docs/publish/start/)
 - [Submit to the HACS default catalogue](https://www.hacs.dev/docs/publish/include/)
 
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jonny5509)

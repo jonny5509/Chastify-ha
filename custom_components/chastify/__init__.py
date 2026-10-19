@@ -102,7 +102,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
                 targets = [targets]
             valid_targets = [
                 target.split(".", 1)[1] for target in targets
-                if isinstance(target, str) and re.fullmatch(r"notify\\.mobile_app_[a-z0-9_]+", target)
+                if isinstance(target, str) and re.fullmatch(r"notify\.mobile_app_[a-z0-9_]+", target)
             ]
             if not valid_targets:
                 raise HomeAssistantError("Select at least one phone target in Chastify options")

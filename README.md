@@ -85,6 +85,7 @@ The integration provides a native Home Assistant **Session Calendar** entity. It
 - Lock Type
 - Start Date / End Date
 - Time Locked / Time Remaining
+- Maximum Duration
 - Session Role
 - Task Points
 - Task Points Required

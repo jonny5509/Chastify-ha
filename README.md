@@ -132,6 +132,24 @@ A bundled Lovelace card is available at:
 
 The card provides a convenient Home Assistant dashboard interface for Chastify session and lock information.
 
+### Dashboard card configuration
+
+The built-in card automatically discovers Chastify sensors, binary sensors, and available button entities. You can customise its title, hide controls for a read-only dashboard, or explicitly map entities if you have renamed them:
+
+```yaml
+type: custom:chastify-card
+title: Chastify
+show_actions: true
+entities:
+  time_locked: sensor.chastify_time_locked
+  time_remaining: sensor.chastify_time_remaining
+  task_points: sensor.chastify_task_points
+  refresh: button.chastify_refresh
+  freeze: button.chastify_freeze
+```
+
+All `entities` entries are optional. Omit an entry to use automatic discovery. The entity IDs above are examples; use the IDs shown in **Settings → Devices & services → Entities** in your own Home Assistant installation. Set `show_actions: false` to display status only.
+
 ## 🌐 API
 
 The integration communicates with the Chastify user-wide DEV API.

@@ -101,13 +101,6 @@ class ChastifyCard extends HTMLElement {
       ["◷", "Maximum duration", this._find("maximum_duration", "my_lock_maximum_duration", "maximum_duration")],
     ];
 
-    const statuses = [
-      ["Locked", this._find("locked", "my_lock_locked", "locked")],
-      ["Ready to unlock", this._find("ready_to_unlock", "my_lock_ready_to_unlock", "ready_to_unlock")],
-      ["Frozen", this._find("frozen", "my_lock_frozen", "frozen")],
-      ["Task assigned", this._find("task_assigned", "my_lock_task_assigned", "task_assigned")],
-    ];
-
     const actionDefs = [
       ["+1 hour", "add_1_hour"],
       ["−1 hour", "subtract_1_hour"],
@@ -116,9 +109,8 @@ class ChastifyCard extends HTMLElement {
     ];
     const actions = actionDefs.map(([label, key]) => ({
       label, key, entity: this._find(key, key),
-    })).filter((action) => action.entity);
+    }));
     const visibleValues = values.filter(([, , entity]) => entity);
-    const visibleStatuses = statuses.filter(([, entity]) => entity);
     const title = this._escape(this._config.title || "Chastify");
     const showActions = this._config.show_actions !== false;
 
@@ -144,9 +136,6 @@ class ChastifyCard extends HTMLElement {
         .row-content { min-width:0; flex:1; padding-left:8px; }
         .label { color:var(--secondary-text-color); font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
         .value { margin-top:4px; color:var(--primary-text-color); font-size:16px; font-weight:600; overflow-wrap:anywhere; }
-        .statuses { display:flex; flex-wrap:wrap; gap:7px; margin-top:12px; }
-        .status { padding:6px 10px; border:1px solid var(--divider-color); border-radius:999px; color:var(--secondary-text-color); font-size:12px; font-weight:600; }
-        .status.on { color:var(--success-color,var(--primary-color)); border-color:var(--success-color,var(--primary-color)); }
         .actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
         .action {
           min-width:0; min-height:44px; padding:8px 12px; border:0; border-radius:12px;
@@ -167,16 +156,10 @@ class ChastifyCard extends HTMLElement {
               this._row(icon, label, this._value(entity))
             ).join("") : '<div class="empty">No Chastify entities found. Check that the integration is loaded, or set entity IDs in the card configuration.</div>'}
           </div>
-          ${visibleStatuses.length ? `<div class="statuses">${visibleStatuses.map(([label, entity]) => {
-            const state = String(entity.state).toLowerCase();
-            const on = state === "on" || state === "true";
-            const display = on ? "Yes" : (state === "off" || state === "false" ? "No" : this._value(entity));
-            return `<span class="status ${on ? "on" : ""}">${this._escape(label)}: ${this._escape(display)}</span>`;
-          }).join("")}</div>` : ""}
-          ${showActions && actions.length ? `
+          ${showActions ? `
             <div class="actions">
               ${actions.map((action, index) => `
-                <button class="action" data-action="${index}" ${["unavailable", "unknown"].includes(String(action.entity.state).toLowerCase()) || this._busy.has(index) ? "disabled" : ""}>
+                <button class="action" data-action="${index}" ${!action.entity || ["unavailable", "unknown"].includes(String(action.entity.state).toLowerCase()) || this._busy.has(index) ? "disabled" : ""}>
                   ${this._busy.has(index) ? "Working…" : this._escape(action.label)}
                 </button>
               `).join("")}

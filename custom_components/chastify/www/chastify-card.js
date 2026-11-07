@@ -96,19 +96,9 @@ class ChastifyCard extends HTMLElement {
     if (!this._hass || !this._root) return;
 
     const values = [
-      ["⏱", "Time locked", this._find("time_locked", "my_lock_time_locked", "time_locked")],
+      ["⏱", "Time locked / elapsed", this._find("time_locked", "my_lock_time_locked", "time_locked")],
       ["⌛", "Time remaining", this._find("time_remaining", "my_lock_time_remaining", "time_remaining")],
-      ["◷", "Maximum remaining", this._find("maximum_time_remaining", "my_lock_max_time_remaining", "maximum_time_remaining")],
-      ["⭐", "Task points", this._find("task_points", "my_lock_task_points", "task_points")],
-      ["🎯", "Points required", this._find("task_points_required", "my_lock_task_points_required", "task_points_required")],
-      ["↘", "Points remaining", this._find("task_points_remaining", "my_lock_task_points_remaining", "task_points_remaining")],
-      ["🔒", "Lock title", this._find("lock_title", "my_lock_lock_title", "lock_title")],
-      ["◇", "Lock type", this._find("lock_type", "my_lock_lock_type", "lock_type")],
-      ["👤", "Wearer", this._find("wearer_username", "my_lock_wearer_username", "wearer_username")],
-      ["👤", "Keyholder", this._find("keyholder_username", "my_lock_keyholder_username", "keyholder_username")],
-      ["◷", "Start date", this._find("start_date", "my_lock_start_date", "start_date")],
-      ["◷", "End date", this._find("end_date", "my_lock_end_date", "end_date")],
-      ["◉", "Session role", this._find("session_role", "my_lock_session_role", "session_role")],
+      ["◷", "Maximum duration", this._find("maximum_duration", "my_lock_maximum_duration", "maximum_duration")],
     ];
 
     const statuses = [
@@ -119,16 +109,10 @@ class ChastifyCard extends HTMLElement {
     ];
 
     const actionDefs = [
-      ["Refresh", "refresh"],
-      ["Refresh history", "refresh_history"],
-      ["Clear calendar history", "clear_calendar_history"],
-      ["+1 day", "add_1_day"],
       ["+1 hour", "add_1_hour"],
-      ["−1 day", "subtract_1_day"],
       ["−1 hour", "subtract_1_hour"],
-      ["Freeze", "freeze"],
-      ["Unfreeze", "unfreeze"],
-      ["Hygienic unlock", "unlock"],
+      ["+1 day", "add_1_day"],
+      ["−1 day", "subtract_1_day"],
     ];
     const actions = actionDefs.map(([label, key]) => ({
       label, key, entity: this._find(key, key),

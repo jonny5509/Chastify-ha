@@ -28,7 +28,7 @@ async def async_setup_entry(
         "Wearer Username", "Keyholder Username", "Lock Title", "Lock Type",
         "Start Date", "End Date", "Timer Visible", "Time Locked",
         "Time Remaining", "Session Role", "Task Points",
-        "Task Points Required", "Task Points Remaining",
+        "Task Points Required", "Task Points Remaining", "Maximum Duration",
     }
     for entity in list(registry.entities.values()):
         if entity.config_entry_id == entry.entry_id and entity.domain == "sensor":
@@ -48,6 +48,7 @@ async def async_setup_entry(
         ChastifyNumberSensor(coordinator, entry, "task_points_required", "Task Points Required", "taskPointsRequired"),
         ChastifyDurationSensor(coordinator, entry, "time_locked", "Time Locked", "timeLockedSeconds"),
         ChastifyDurationSensor(coordinator, entry, "time_remaining", "Time Remaining", "timeRemainingSeconds"),
+        ChastifyMaximumDurationSensor(coordinator, entry),
         ChastifySensor(coordinator, entry, "wearer_username", "Wearer Username", "wearerUsername"),
     ])
 
@@ -173,6 +174,36 @@ class ChastifyDurationSensor(ChastifyBaseSensor):
         if value is None:
             return None
         total_seconds = max(0, int(value))
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+
+class ChastifyMaximumDurationSensor(ChastifyBaseSensor):
+    """Expose maximum lock duration when the API provides a configured limit."""
+
+    _attr_icon = "mdi:timer-cog-outline"
+
+    def __init__(self, coordinator, entry):
+        super().__init__(coordinator, entry, "maximum_duration", "Maximum Duration")
+
+    @property
+    def native_value(self) -> str | None:
+        value = None
+        for key in (
+            "maximumDurationSeconds", "maxDurationSeconds",
+            "maximumTimeSeconds", "maxTimeSeconds",
+            "maximumDuration", "maxDuration",
+        ):
+            value = field(self.coordinator.data, key)
+            if value is not None:
+                break
+        if isinstance(value, dict):
+            value = next((value.get(key) for key in ("seconds", "totalSeconds", "value", "duration") if value.get(key) is not None), None)
+        number = _number(value)
+        if number is None:
+            return None
+        total_seconds = max(0, int(number))
         hours, remainder = divmod(total_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

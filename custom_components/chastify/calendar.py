@@ -82,6 +82,11 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
         data = self.coordinator.data or {}
         if not data:
             return None
+        if _payload_reports_ended(data):
+            # The API still returned a payload, but it explicitly reports the
+            # session as ended. Treat it as no active session so the stored
+            # entry is finalized as a timed record of its actual duration.
+            return None
 
         now = datetime.now(timezone.utc)
         updated_at = getattr(self.coordinator, "last_update_success_time", None)
@@ -191,6 +196,7 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
     def _record_current_snapshot(self) -> None:
         data = self.coordinator.data
         event = self._current_timed_event()
+        ended_payload = data is not None and bool(data) and _payload_reports_ended(data)
         changed = False
         active_records = [item for item in self._history if item.get("active")]
 
@@ -221,14 +227,75 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             elif record != serialized:
                 record.update(serialized)
                 changed = True
-        elif data == {}:
+        elif data == {} or ended_payload:
             # An empty snapshot means Chastify confirmed there is no active
             # session. Preserve the event, with its observed completion time.
-            finished_at = datetime.now(timezone.utc).isoformat()
+            # The same applies when the API returned a payload that
+            # explicitly reports the session as ended.
+            finished_at_dt = datetime.now(timezone.utc)
+            finished_at = finished_at_dt.isoformat()
             for item in active_records:
                 item["end"] = finished_at
                 item["active"] = False
                 changed = True
+            if ended_payload:
+                # Record a completed entry from the ended payload itself so
+                # a session that started and ended while HA was unavailable
+                # still appears as a timed record of its actual duration.
+                updated_at = getattr(self.coordinator, "last_update_success_time", None)
+                if not isinstance(updated_at, datetime):
+                    updated_at = finished_at_dt
+                elif updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=timezone.utc)
+                else:
+                    updated_at = updated_at.astimezone(timezone.utc)
+                start, scheduled_end = _session_bounds(data, updated_at)
+                if start is not None:
+                    existing = next(
+                        (
+                            item
+                            for item in self._history
+                            if (prior := _parse_datetime(item.get("start"))) is not None
+                            and abs((start - prior).total_seconds()) <= 90
+                        ),
+                        None,
+                    )
+                    if existing is None:
+                        start_dt = start.astimezone(timezone.utc)
+                        scheduled_dt = (
+                            scheduled_end.astimezone(timezone.utc)
+                            if scheduled_end is not None
+                            else None
+                        )
+                        if scheduled_dt is not None and scheduled_dt > start_dt:
+                            end_dt = min(scheduled_dt, finished_at_dt)
+                        else:
+                            end_dt = finished_at_dt
+                        if end_dt > start_dt:
+                            description_lines = ["Chastify session"]
+                            lock_type = field(data, "lockType") or field(data, "deviceType")
+                            if lock_type:
+                                description_lines.append(f"Lock type: {lock_type}")
+                            role = field(data, "sessionRole") or field(data, "role")
+                            if role:
+                                description_lines.append(f"Session role: {role}")
+                            description = _with_duration(
+                                "\n".join(description_lines), start_dt, end_dt
+                            )
+                            self._history.append(
+                                {
+                                    "uid": _session_uid(self.unique_id, start_dt),
+                                    "summary": (
+                                        f"Chastify — Active session — started "
+                                        f"{as_local(start_dt).strftime('%H:%M')}"
+                                    ),
+                                    "description": description,
+                                    "start": start_dt.isoformat(),
+                                    "end": end_dt.isoformat(),
+                                    "active": False,
+                                }
+                            )
+                            changed = True
 
         if changed:
             # Store an immutable snapshot and serialize writes. Rapid coordinator
@@ -273,6 +340,11 @@ class ChastifyCalendar(CoordinatorEntity[ChastifyCoordinator], CalendarEntity):
             if item.get("active"):
                 events.extend(_active_daily_events(str(item["uid"]), start, end, description))
             else:
+                if "Duration:" not in description:
+                    # Older history entries were saved without a duration.
+                    # Derive it now so every completed session shows how
+                    # long it ran.
+                    description = _with_duration(description, start, end)
                 events.append(
                     CalendarEvent(
                         summary=str(item.get("summary") or "Chastify session"),
@@ -333,6 +405,61 @@ async def _save_history_snapshot(store: Store, snapshot: dict[str, Any], previou
         await store.async_save(snapshot)
     except Exception:  # noqa: BLE001 - keep the entity alive and log storage failures
         _LOGGER.exception("Unable to save Chastify calendar history")
+
+
+def _payload_reports_ended(data: dict[str, Any]) -> bool:
+    """Whether a Chastify payload explicitly reports an ended session."""
+    if not isinstance(data, dict) or not data:
+        return False
+    status = field(data, "status") or field(data, "state") or field(data, "lockStatus")
+    if not isinstance(status, str):
+        return False
+    normalized = status.strip().lower().replace("_", "-").replace(" ", "-")
+    return normalized in {
+        "unlocked",
+        "ended",
+        "completed",
+        "complete",
+        "finished",
+        "done",
+        "inactive",
+        "cancelled",
+        "canceled",
+        "archived",
+        "deserted",
+        "released",
+        "expired",
+    }
+
+
+def _format_duration(start: datetime, end: datetime) -> str | None:
+    """Format the elapsed time of a completed session for its description."""
+    total = int((end - start).total_seconds())
+    if total <= 0 or end <= start:
+        return None
+    minutes = total // 60
+    if minutes <= 0:
+        return f"{total}s"
+    days, remainder = divmod(minutes, 24 * 60)
+    hours, mins = divmod(remainder, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}d")
+    if hours:
+        parts.append(f"{hours}h")
+    if days or hours or mins:
+        parts.append(f"{mins}m")
+    return " ".join(parts)
+
+
+def _with_duration(description: str, start: datetime, end: datetime) -> str:
+    """Append the session duration to a completed event's description."""
+    duration = _format_duration(start, end)
+    if duration is None:
+        return description
+    if description:
+        return f"{description}\nDuration: {duration}"
+    return f"Duration: {duration}"
 
 
 def _session_uid(unique_id: str, start: datetime) -> str:

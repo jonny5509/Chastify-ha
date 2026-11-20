@@ -67,9 +67,22 @@ class ChastifyBinary(CoordinatorEntity[ChastifyCoordinator], BinarySensorEntity)
                     {"unlockable", "readyToUnlock", "ready_to_unlock", "isUnlockable", "canUnlock"},
                 )
         elif self._data_key == "locked":
-            # Only report the state when the API explicitly provides it.
-            # A non-empty session payload does not prove that the lock is locked.
+            # Prefer an explicitly provided lock state, accepting common field names.
             value = field(self.coordinator.data, "locked")
+            if value is None:
+                value = _find_value(
+                    self.coordinator.data,
+                    {"locked", "isLocked", "is_locked", "lockState", "lock_state"},
+                )
+            # Fallback: if lock state is not provided, infer from an active session
+            # with remaining time.
+            if value is None and self.coordinator.data:
+                remaining = field(self.coordinator.data, "timeRemainingSeconds")
+                if remaining is not None:
+                    try:
+                        value = float(remaining) > 0
+                    except (TypeError, ValueError):
+                        pass
         else:
             value = field(self.coordinator.data, self._data_key)
 
